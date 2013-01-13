@@ -119,7 +119,7 @@ exports.ACEBinaryPlist = ACEBinaryPlist;
 
 ACEBinaryPlist.prototype.rootNode = function() {
     if (!this.root) this.root = bplist.fromBuffer(this.buffer);
-	return this.root;
+    return this.root;
 };
 
 // }}}
@@ -315,7 +315,8 @@ var STA_PKG_TYPE = 1,
 
     TYPE_PLIST = 0x02,
     TYPE_PING = 0x03,
-    TYPE_PONG = 0x04;
+    TYPE_PONG = 0x04,
+    TYPE_END = 0xFF;
 
 function PackageParser() {
     StreamParser.call(this);
@@ -344,10 +345,12 @@ PackageParser.prototype.execute = function(buffer, start, end) {
                     break;
                 case TYPE_PING:
                 case TYPE_PONG:
+                case TYPE_END:
                     this.onpackage && this.onpackage(this.packageType, this.packageSize);
                     this.state = STA_PKG_TYPE;
                     break;
                 default:
+                    console.log(buffer.slice(start, end));
                     this.emit('error', new Error("Unknow ACE package type\"" + this.packageType + "\"."));
                     break;
             }

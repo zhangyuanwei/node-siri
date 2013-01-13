@@ -17,6 +17,9 @@ var util = require('util'),
     BPLIST_DICT = 0xD0,
     BPLIST_MASK = 0xF0;
 
+function error(str) {
+    throw new Error(str || "Error");
+}
 
 // {{{ BPlistNode
 
@@ -106,14 +109,22 @@ BPlistDictNode.prototype.valueHash = function() {
     return tmp.join(",");
 };
 
+function BPlistData(buffer) {
+    this.buffer = buffer;
+}
+BPlistData.prototype.toJSON = function() {
+    return this.buffer.toString("base64");
+};
+
 function BPlistDataNode(buffer) {
-    BPlistPlainNode.call(this, BPLIST_DATA, buffer);
+    BPlistPlainNode.call(this, BPLIST_DATA, new BPlistData(buffer));
 }
 util.inherits(BPlistDataNode, BPlistPlainNode);
 
 BPlistDataNode.prototype.valueHash = function() {
     return this.value.toString("base64");
 };
+
 
 function hashEncode(str) {
     return String(str)
@@ -137,7 +148,7 @@ var BPLIST_MAGIC = "bplist",
     //BPLIST_TRL_NUMOBJ_IDX = 2,
     //BPLIST_TRL_ROOTOBJ_IDX = 10,
     //BPLIST_TRL_OFFTAB_IDX = 18,
-	//
+    //
     BPLIST_TRL_SIZE = 32,
     BPLIST_TRL_OFFSIZE_IDX = 6,
     BPLIST_TRL_PARMSIZE_IDX = 7,
@@ -194,10 +205,9 @@ BPlistBuffer.prototype.initParam = function() { // 解析参数 {{{
 
     this.offsetSize = this.buffer[trailer + BPLIST_TRL_OFFSIZE_IDX];
     this.dictParamSize = this.buffer[trailer + BPLIST_TRL_PARMSIZE_IDX];
-    //FIXME 由于Js限制,最多只能处理32位
-    this.numObjects = this.buffer.readUInt32BE(trailer + BPLIST_TRL_NUMOBJ_IDX + 4);
-    this.rootObject = this.buffer.readUInt32BE(trailer + BPLIST_TRL_ROOTOBJ_IDX + 4);
-    this.offsetTableIndex = this.buffer.readUInt32BE(trailer + BPLIST_TRL_OFFTAB_IDX + 4);
+    this.numObjects = this.getUint(trailer + BPLIST_TRL_NUMOBJ_IDX, 8);
+    this.rootObject = this.getUint(trailer + BPLIST_TRL_ROOTOBJ_IDX, 8);
+    this.offsetTableIndex = this.getUint(trailer + BPLIST_TRL_OFFTAB_IDX, 8);
 
 }; // }}}
 
@@ -210,8 +220,9 @@ BPlistBuffer.prototype.getUint = function(offset, size) { // 读取无符号整�
         case 4:
             return this.buffer.readUInt32BE(offset);
         case 8:
+            return this.buffer.readUInt32BE(offset) * 0x100000000 + this.buffer.readUInt32BE(offset + 4);
         default:
-            error();
+            error("Unknow size " + size);
     }
 }; // }}}
 
@@ -338,7 +349,7 @@ BPlistBuffer.prototype.readNode = function() { // 得到节点 {{{
             node.indexs = this.readList(this.readSize() << 1);
             return node;
         default:
-            error();
+            error("Unknow type " + this.type);
     }
 }; // }}}
 
@@ -411,6 +422,9 @@ BPlistBuffer.prototype.setUint = function(offset, value, size) { // {{{ 写入�
             this.buffer.writeUInt32BE(value, offset);
             break;
         case 8:
+            this.buffer.writeUInt32BE(value / 0x100000000 | 0, offset);
+            this.buffer.writeUInt32BE(value | 0, offset + 4);
+            break;
         default:
             error();
             break;
@@ -424,6 +438,7 @@ BPlistBuffer.prototype.writeHeader = function() { // 写入头部标识 {{{
     this.offset += BPLIST_MAGIC_SIZE;
     this.buffer.write(BPLIST_VERSION, this.offset, BPLIST_VERSION_SIZE, "ascii");
     this.offset += BPLIST_VERSION_SIZE;
+
 }; // }}}
 
 BPlistBuffer.prototype.writeOffsetTable = function(table) { // 写入索引表 {{{
@@ -442,14 +457,14 @@ BPlistBuffer.prototype.writeOffsetTable = function(table) { // 写入索引表 {
 
 BPlistBuffer.prototype.writeTrailer = function() { // 写入尾部数据 {{{
     var offset;
-    this.malloc(BPLIST_TRL_SIZE);
-
     offset = this.offset;
+
+    this.malloc(BPLIST_TRL_SIZE);
     this.setUint(offset + BPLIST_TRL_OFFSIZE_IDX, this.offsetSize, 1);
     this.setUint(offset + BPLIST_TRL_PARMSIZE_IDX, this.dictParamSize, 1);
-    this.setUint(offset + BPLIST_TRL_NUMOBJ_IDX + 4, this.numObjects, 4);
-    this.setUint(offset + BPLIST_TRL_ROOTOBJ_IDX + 4, this.rootObject, 4);
-    this.setUint(offset + BPLIST_TRL_OFFTAB_IDX + 4, this.offsetTableIndex, 4);
+    this.setUint(offset + BPLIST_TRL_NUMOBJ_IDX, this.numObjects, 8);
+    this.setUint(offset + BPLIST_TRL_ROOTOBJ_IDX, this.rootObject, 8);
+    this.setUint(offset + BPLIST_TRL_OFFTAB_IDX, this.offsetTableIndex, 8);
     this.offset = offset + BPLIST_TRL_SIZE;
 
 }; // }}}
@@ -486,8 +501,9 @@ BPlistBuffer.prototype.writeNull = function(value) { // 写入NULL节点 {{{
 }; // }}}
 
 BPlistBuffer.prototype.writeUint = function(value) { // 写入正整数 {{{
-    var size = this.getUintSize(value),
-        index = (size == 1 ? 0 : (size == 2 ? 1 : (size == 4 ? 2 : 3)));
+    var size, index;
+    size = this.getUintSize(value);
+    index = (size == 1 ? 0 : (size == 2 ? 1 : (size == 4 ? 2 : 3)));
     this.writeSize(index);
     this.malloc(size);
     this.setUint(this.offset, value, size);
@@ -495,9 +511,9 @@ BPlistBuffer.prototype.writeUint = function(value) { // 写入正整数 {{{
 }; // }}}
 
 BPlistBuffer.prototype.writeReal = function(value) { // 写入Real数 {{{
-    var index = (value < 3.4028234663852886e+38 && value > -3.4028234663852886e+38) ? 2 : 3,
-        //TODO 修复判断逻辑
-        //index = 3,
+    var //index = (value < 3.4028234663852886e+38 && value > -3.4028234663852886e+38) ? 2 : 3,
+    //TODO 修复判断逻辑
+    index = 3,
         size = 1 << index;
     this.writeSize(index);
     this.malloc(size);
@@ -662,10 +678,6 @@ BPlistBuffer.prototype.writePlist = function(rootNode) { // 写入整个Plist结
     this.offsetSize = this.getUintSize(this.offsetTableIndex);
 
     this.writeOffsetTable(offsetTable);
-    //this.dictParamSize = this.buffer[trailer + BPLIST_TRL_PARMSIZE_IDX];
-    //this.numObjects = this.buffer.readUInt32BE(trailer + BPLIST_TRL_NUMOBJ_IDX + 4);
-    //this.rootObject = this.buffer.readUInt32BE(trailer + BPLIST_TRL_ROOTOBJ_IDX + 4);
-    //this.offsetTableIndex = this.buffer.readUInt32BE(trailer + BPLIST_TRL_OFFTAB_IDX + 4);
 
     this.writeTrailer();
 
@@ -695,56 +707,4 @@ exports.toBuffer = function(rootNode) { // 构建 bplist {{{
     return data;
 }; // }}}
 
-/* Test
-function error(str) {
-    throw new Error(str || "Error");
-}
-
-var fs = require("fs"),
-    crypto = require("crypto");
-
-function md5(data) {
-    var md5 = crypto.createHash("md5");
-    md5.update(data);
-    return md5.digest("hex");
-    return data.hash();
-}
-
-//[3].
-//[1, 2, 3, 4, 5].
-[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].
-forEach(function(id) {
-    var file, oldData, newData, oldNode, newNode;
-    file = id + ".plist";
-    console.log("\n*** " + file + " *****");
-
-
-    oldData = fs.readFileSync(file);
-    oldNode = exports.fromBuffer(oldData);
-
-    newData = exports.toBuffer(oldNode);
-    newNode = exports.fromBuffer(newData);
-
-    console.log(md5(oldNode));
-    //console.log(md5(newNode));
-    console.log(newNode.toObject());
-    //console.log(oldNode.stringify());
-    //console.log("********");
-    //console.log(newNode.stringify());
-
-    fs.writeFileSync("_" + file, newData);
-    //console.log(md5(oldData));
-    //console.log(md5(newData));
-    //console.log(root.hash());
-    //fs.writeFileSync(id + ".json", root.stringify());
-    //console.log(exports.toBuffer(root));
-    //console.log(root.hash());
-    //console.log(
-    //exports.convertToBin(
-    //console.log(
-    //.hash());
-    //);
-    //.stringify());
-});
-//*/
 // vim600: sw=4 ts=4 fdm=marker syn=javascript
