@@ -220,7 +220,7 @@ SiriDevice.prototype.end = function(str) {
 };
 // }}}
 
-//* Test
+/* Test
 var fs = require("fs"),
     siri = exports,
     tmp = 0;
