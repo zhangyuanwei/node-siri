@@ -36,7 +36,7 @@ siri.createServer({
 		//为你洗衣服、脱水、晾衣服^_^...
 		setTimeout(function() {
 			device.end("衣服洗好了，主人.");
-		});
+		}, 1000);
 	} else {
 		device.proxy();
 	}
