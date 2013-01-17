@@ -4,8 +4,12 @@ node-siri
 nodejs Siri代理.
 
 1. 想办法将 guzzoni.apple.com 解析到运行代理的机器
-2. 安装证书
-3. OK~
+2. 运行 `node install.js`
+3. 通过IOS设备访问 http://guzzoni.apple.com，如果能看到欢迎界面，就离成功不远了
+4. 点击欢迎页上的链接安装证书
+5. 运行测试程序 `node test.js`
+6. 在Siri里说“你好”，代理会回复“Siri代理向你问好!”
+7. 写自己的程序，尽情的调戏Siri吧。
 
 ``` javascript
 var fs = require("fs"),
