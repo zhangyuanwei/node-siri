@@ -23,6 +23,6 @@ siri.createServer({
     } else {
         device.proxy();
     }
-}).listen(4433, function() {
+}).listen(433, function() {
     console.log("Proxy start.");
 });
