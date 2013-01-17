@@ -50,10 +50,10 @@ function secureConnectionListener(clientStream) {
         clientParser.parse(data, start, end);
     };
     clientStream.on("end", clientStream.onend = function() {
-        console.log("ClientStream end");
+        //console.log("ClientStream end");
     });
     clientStream.on("close", function() {
-        console.log("ClientStream close");
+        //console.log("ClientStream close");
     });
     clientParser.onAccept = function(pkg) {
         if (pkg.getType() == parser.PKG_ACE_PLIST) {
@@ -69,10 +69,10 @@ function secureConnectionListener(clientStream) {
         serverParser.parse(data, start, end);
     };
     serverStream.on("end", serverStream.onend = function() {
-        console.log("ServerStream end");
+        //console.log("ServerStream end");
     });
     serverStream.on("close", function() {
-        console.log("ServerStream close");
+        //console.log("ServerStream close");
     });
 
     serverParser.onAccept = function(pkg) {
@@ -90,14 +90,14 @@ function secureConnectionListener(clientStream) {
                 device.receivePackage(pkg);
                 break;
             default:
-                console.log("Unknow package type:" + pkg.type + "!");
+                //console.log("Unknow package type:" + pkg.type + "!");
         }
     };
     device.onCommand = function(str) {
         self.emit("command", str, device);
     };
 
-    console.log("Client connect.");
+    //console.log("Client connect.");
 }
 // }}}
 

@@ -9,7 +9,7 @@ nodejs Siri代理.
 
 ``` javascript
 var fs = require("fs"),
-	siri = require("siri");
+	siri = require("./siri");
 
 siri.createServer({
 	key: fs.readFileSync('./server.passless.key'),
@@ -29,7 +29,7 @@ siri.createServer({
 支持回调
 ``` javascript
 var fs = require("fs"),
-	siri = require("siri");
+	siri = require("./siri");
 
 siri.createServer({
 	key: fs.readFileSync('./server.passless.key'),
