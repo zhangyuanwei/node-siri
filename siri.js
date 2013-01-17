@@ -1,6 +1,7 @@
 var tls = require('tls'),
     util = require('util'),
     zlib = require('zlib'),
+    Stream = require('stream'),
 
     parser = require("./parser"),
     bplist = require("./bplist"),
@@ -11,15 +12,17 @@ var tls = require('tls'),
     SIRI_PORT = 443;
 
 function Server(options, commandListener) { // Server {{{
-    if (!(this instanceof Server)) {
-        return new Server(options, commandListener);
-    }
-
-    tls.Server.call(this, options, secureConnectionListener);
+    if (!(this instanceof Server)) return new Server(options, commandListener);
+    tls.Server.call(this, options);
 
     if (commandListener) {
-        this.addListener("command", commandListener);
+        this.on("command", commandListener);
     }
+
+    this.on("secureConnection", secureConnectionListener);
+    this.on("clientError", function(err, conn) {
+        conn.destroy(err);
+    });
 }
 
 util.inherits(Server, tls.Server);
@@ -30,17 +33,14 @@ exports.createServer = function(options, listener) {
 }
 
 function secureConnectionListener(clientStream) {
-    var proxyServer = this,
+    var self = this,
         clientParser = new SiriParser(parser.SIRI_REQUEST),
         //clientCompressor = zlib.createDeflate(),
 
         serverStream = tls.connect(SIRI_PORT, SIRI_SERVER),
         serverParser = new SiriParser(parser.SIRI_RESPONSE),
         serverCompressor = zlib.createDeflate(),
-        STATE_WAIT_SPEECH_RECOGNIZE = 0,
-        STATE_WAIT_REQUEST_COMPLETE = 1,
-        state = STATE_WAIT_SPEECH_RECOGNIZE,
-        prevent = false;
+        device = new SiriDevice();
 
     clientStream.pipe(serverStream);
     //只解析请求，不做修改
@@ -49,28 +49,33 @@ function secureConnectionListener(clientStream) {
     clientStream.ondata = function(data, start, end) {
         clientParser.parse(data, start, end);
     };
-    clientParser.on("package", function(pkg) {
-        switch (pkg.getType()) {
-            case parser.PKG_HTTP_HEADER:
-            case parser.PKG_HTTP_ACEHEADER:
-            case parser.PKG_HTTP_UNKNOW:
-            case parser.PKG_ACE_UNKNOW:
-                break;
-            case parser.PKG_ACE_PLIST:
-                fs.writeFileSync("data/" + getId() + ".client.json", pkg.rootNode().stringify());
-                break;
-            default:
-                console.log("Unknow package type:" + pkg.type + "!");
-        }
+    clientStream.on("end", clientStream.onend = function() {
+        console.log("ClientStream end");
     });
+    clientStream.on("close", function() {
+        console.log("ClientStream close");
+    });
+    clientParser.onAccept = function(pkg) {
+        if (pkg.getType() == parser.PKG_ACE_PLIST) {
+            //fs.writeFileSync("data/" + getId() + ".client.json", pkg.rootNode().stringify());
+        }
+    };
 
+    //准备压缩管道
     serverCompressor._flush = zlib.Z_SYNC_FLUSH;
-    serverCompressor.pipe(clientStream);
+    device.pipe(serverCompressor).pipe(clientStream);
+    //截获服务器信息
     serverStream.ondata = function(data, start, end) {
         serverParser.parse(data, start, end);
     };
-    serverParser.on("package", function(pkg) {
-        var node, obj, arr, res;
+    serverStream.on("end", serverStream.onend = function() {
+        console.log("ServerStream end");
+    });
+    serverStream.on("close", function() {
+        console.log("ServerStream close");
+    });
+
+    serverParser.onAccept = function(pkg) {
         switch (pkg.getType()) {
             case parser.PKG_HTTP_HEADER:
             case parser.PKG_HTTP_ACEHEADER:
@@ -81,61 +86,137 @@ function secureConnectionListener(clientStream) {
                 serverCompressor.write(pkg.getData());
                 break;
             case parser.PKG_ACE_PLIST:
-
-                node = pkg.rootNode();
-                obj = node.toObject();
-
-                switch (state) {
-                    case STATE_WAIT_SPEECH_RECOGNIZE:
-                        if (obj["class"] == "SpeechRecognized") {
-                            arr = [];
-                            obj.properties.recognition.properties.phrases.forEach(function(item) {
-                                item.properties.interpretations[0].properties.tokens.forEach(function(item) {
-                                    arr.push(item.properties.text);
-                                });
-                            });
-                            res = new SiriResponse(pkg);
-                            proxyServer.emit("command", arr.join(""), res);
-                            res.response.forEach(function(node) {
-                                var pkg = new parser.ACEBinaryPlist(node);
-                                serverCompressor.write(pkg.getData());
-                            });
-                            prevent = res.prevent;
-                            state = STATE_WAIT_REQUEST_COMPLETE;
-                        }
-                        break;
-                    case STATE_WAIT_REQUEST_COMPLETE:
-                        if (obj["class"] == "RequestCompleted") {
-                            state = STATE_WAIT_SPEECH_RECOGNIZE;
-                        }
-                }
-                if (!prevent) {
-                    serverCompressor.write(pkg.getData());
-                }
-                fs.writeFileSync("data/" + getId() + ".server.json", node.stringify());
+                //fs.writeFileSync("data/" + getId() + ".server.json", pkg.rootNode().stringify());
+                device.receivePackage(pkg);
                 break;
             default:
                 console.log("Unknow package type:" + pkg.type + "!");
         }
-    });
+    };
+    device.onCommand = function(str) {
+        self.emit("command", str, device);
+    };
 
     console.log("Client connect.");
 }
 // }}}
 
-function SiriResponse(pkg) { // Response {{{
-    this.speech = pkg;
-    this.prevent = false;
-    this.response = [];
+var WRITE_FORCE = true;
+
+function SiriDevice() { // Device {{{
+
+    Stream.call(this);
+    this.writable = false;
+    this.readable = true;
+
+    this.serverResponse = [];
+    this.proxied = true;
+    this.completed = true;
+
+    this.aceId = null;
+    this.refId = null;
+    this.version = null;
 }
 
-SiriResponse.prototype.say = function(str) {
-    this.prevent = true;
-    this.response.push();
+util.inherits(SiriDevice, Stream);
+
+function getRecognizedText(obj) {
+    var arr;
+    if (obj["class"] != "SpeechRecognized") return null;
+    arr = [];
+    obj.properties.recognition.properties.phrases.forEach(function(item) {
+        item.properties.interpretations[0].properties.tokens.forEach(function(item) {
+            arr.push(item.properties.text);
+        });
+    });
+    return arr.join("");
+}
+
+SiriDevice.prototype.onCommand = function() {
+    //Do nothing
 };
 
-SiriResponse.prototype.getResponse = function(){
+SiriDevice.prototype.getCompletedPackage = function() {
+    return new parser.ACEBinaryPlist(bplist.fromPObject({
+        "properties": {
+            "callbacks": []
+        },
+        "refId": "string:" + this.refId,
+        "v": "string:" + this.version,
+        "class": "string:RequestCompleted",
+        "aceId": "string:" + this.aceId,
+        "group": "string:com.apple.ace.system"
+    }));
+};
 
+SiriDevice.prototype.writePackage = function(pkg, check) {
+    if (check !== WRITE_FORCE && this.completed) return;
+    this.emit('data', pkg.getData());
+};
+
+SiriDevice.prototype.receivePackage = function(pkg) {
+    var obj = pkg.rootNode().toObject();
+
+    this.refId = obj.refId;
+    this.aceId = obj.aceId;
+    this.version = obj.v;
+
+    switch (obj["class"]) {
+        case "SpeechRecognized":
+            this.serverResponse = [];
+            this.proxied = false;
+            this.completed = false;
+
+            this.writePackage(pkg, WRITE_FORCE);
+            this.onCommand(getRecognizedText(obj));
+            break;
+        default:
+            if (this.proxied) {
+                this.writePackage(pkg, WRITE_FORCE);
+            } else {
+                this.serverResponse.push(pkg);
+            }
+            break;
+    }
+};
+
+SiriDevice.prototype.proxy = function() {
+    var self = this;
+    this.serverResponse.forEach(function(pkg, index) {
+        self.writePackage(pkg);
+    });
+    this.proxied = true;
+    this.completed = true;
+};
+
+SiriDevice.prototype.say = function(str, speakable) {
+    this.writePackage(new parser.ACEBinaryPlist(bplist.fromPObject({
+        "properties": {
+            "temporary": "null:false",
+            "dialogPhase": "string:Completion",
+            "scrollToTop": "null:false",
+            "views": [{
+                "class": "string:AssistantUtteranceView",
+                "properties": {
+                    "dialogIdentifier": "string:Misc#answer",
+                    "speakableText": "unicode:" + (speakable === undefined ? str : speakable),
+                    "text": "unicode:" + str
+                },
+                "group": "string:com.apple.ace.assistant"
+            }]
+        },
+        "refId": "string:" + this.refId,
+        "v": "string:" + this.version,
+        "class": "string:AddViews",
+        "aceId": "string:" + this.aceId,
+        "group": "string:com.apple.ace.assistant"
+    })));
+};
+
+SiriDevice.prototype.end = function(str) {
+    if (str !== undefined) this.say(str);
+    this.writePackage(this.getCompletedPackage());
+    this.completed = true;
 };
 // }}}
 
@@ -145,16 +226,29 @@ var fs = require("fs"),
     tmp = 0;
 
 function getId() {
-    return (++tmp < 10) ? "0" + tmp : tmp;
+    tmp++;
+    return (tmp < 100 ? "0" : "") + (tmp < 10 ? "0" : "") + tmp;
 }
+
 //*
 siri.createServer({
-    key: fs.readFileSync('/home/zhangyuanwei/.siriproxy/server.passless.key'),
-    cert: fs.readFileSync('/home/zhangyuanwei/.siriproxy/server.passless.crt')
-}, function(command, client) {
+    key: fs.readFileSync('./server.passless.key'),
+    cert: fs.readFileSync('./server.passless.crt')
+}, function(command, device) {
     console.log(command);
     if (command == "你好") {
-        client.say("Siri代理向你问好!");
+        device.say("3");
+        setTimeout(function() {
+            device.say("2");
+            setTimeout(function() {
+                device.say("1");
+                setTimeout(function() {
+                    device.end("Siri代理向你问好,哈哈哈!");
+                }, 1000);
+            }, 1000);
+        }, 1000);
+    } else {
+        device.proxy();
     }
 }).listen(4433, function() {
     console.log("Proxy start.");

@@ -1,7 +1,7 @@
 var util = require('util'),
     zlib = require('zlib'),
     assert = require('assert').ok,
-    EventEmitter = require('events').EventEmitter,
+    //EventEmitter = require('events').EventEmitter,
 
     bplist = require('./bplist'),
     Fifo = require('./fifo');
@@ -9,12 +9,12 @@ var util = require('util'),
 // {{{ 流分析器
 function StreamParser() {
     var self = this;
-    EventEmitter.call(this);
+    //EventEmitter.call(this);
     this.fifo = new Fifo(function(buffer, start, end) {
         return self.execute(buffer, start, end);
     });
 }
-util.inherits(StreamParser, EventEmitter);
+//util.inherits(StreamParser, EventEmitter);
 StreamParser.prototype.parse = function(buffer, start, end) {
     if (end === undefined) {
         end = buffer.length;
@@ -28,6 +28,14 @@ StreamParser.prototype.parse = function(buffer, start, end) {
 };
 StreamParser.prototype.execute = function(buffer, start, end) {
     return end;
+};
+
+StreamParser.prototype.onAccept = function() {
+    //Do nothing
+};
+
+StreamParser.prototype.onError = function(msg) {
+    throw new Error(msg);
 };
 //}}}
 
@@ -189,13 +197,17 @@ SiriParser.prototype.initUnzip = function() {
         packageParser.parse(data);
     });
 
-    packageParser.onpackage = function(type, size, data) {
+    packageParser.onAccept = function(type, size, data) {
         if (type == TYPE_PLIST) {
-            self.emit(PACKAGE_EVENT, new ACEBinaryPlist(data));
+            self.onAccept(new ACEBinaryPlist(data));
         } else {
-            self.emit(PACKAGE_EVENT, new ACEPackage(type, size, data));
+            self.onAccept(new ACEPackage(type, size, data));
         }
     };
+
+    packageParser.onError = function(msg) {
+        self.onError("ACE:" + msg);
+    }
 };
 
 SiriParser.prototype.unzipData = function(buffer, start, end) {
@@ -229,10 +241,10 @@ SiriParser.prototype.execute = function(buffer, start, end) {
                     this.state = STA_HTTP_HEADER;
                     start = tmp.end;
                 } else {
-                    this.emit('error', new Error("Requie ACE request line."));
+                    this.onError("Requie ACE request line.");
                 }
             } else if (end - start > MAX_HTTP_HEADER_SIZE) {
-                this.emit('error', new Error("Request line overflow."));
+                this.onError("Request line overflow.");
             }
             break;
         case STA_RES_STATUS:
@@ -247,16 +259,16 @@ SiriParser.prototype.execute = function(buffer, start, end) {
                     this.state = STA_HTTP_HEADER;
                     start = tmp.end;
                 } else {
-                    this.emit('error', new Error("Requie response status line."));
+                    this.onError("Requie response status line.");
                 }
             } else if (end - start > MAX_HTTP_HEADER_SIZE) {
-                this.emit('error', new Error("Response status line overflow."));
+                this.onError("Response status line overflow.");
             }
             break;
         case STA_HTTP_HEADER:
             if ((tmp = getLine(buffer, start, end)) !== false) {
                 if (tmp.line === "") {
-                    this.emit(PACKAGE_EVENT, this.type == SIRI_RESPONSE ? new HTTPResponseHeader(this.storage) : new HTTPRequestHeader(this.storage));
+                    this.onAccept(this.type == SIRI_RESPONSE ? new HTTPResponseHeader(this.storage) : new HTTPRequestHeader(this.storage));
                     this.state = STA_ACE_HEADER;
                     start = tmp.end;
                 } else if (matches = tmp.line.match(/^([\w-]+)\s*:\s*(.*)$/)) {
@@ -266,10 +278,10 @@ SiriParser.prototype.execute = function(buffer, start, end) {
                     });
                     start = tmp.end;
                 } else {
-                    this.emit('error', new Error("Requie HTTP header line."));
+                    this.onError("Requie HTTP header line.");
                 }
             } else if (end - start > MAX_HTTP_HEADER_SIZE) {
-                this.emit('error', new Error("HTTP header overflow."));
+                this.onError("HTTP header overflow.");
             }
             break;
         case STA_ACE_HEADER:
@@ -281,7 +293,7 @@ SiriParser.prototype.execute = function(buffer, start, end) {
                     }
                 });
                 if (tmp) {
-                    this.emit(PACKAGE_EVENT, new Package(PKG_HTTP_ACEHEADER, ACEHeaderBuffer));
+                    this.onAccept(new Package(PKG_HTTP_ACEHEADER, ACEHeaderBuffer));
                     this.initUnzip();
                     start = start + 4;
                     this.state = STA_ACE_PAYLOAD;
@@ -297,11 +309,11 @@ SiriParser.prototype.execute = function(buffer, start, end) {
             start = end;
             break;
         case STA_PASSTHROUGH:
-            this.emit(PACKAGE_EVENT, new Package(PKG_HTTP_UNKNOW, buffer.slice(start, end)));
+            this.onAccept(new Package(PKG_HTTP_UNKNOW, buffer.slice(start, end)));
             start = end;
             break;
         default:
-            this.emit('error', new Error("Unknow state."));
+            this.onError("Unknow state.");
             break;
     }
     return start;
@@ -346,12 +358,12 @@ PackageParser.prototype.execute = function(buffer, start, end) {
                 case TYPE_PING:
                 case TYPE_PONG:
                 case TYPE_END:
-                    this.onpackage && this.onpackage(this.packageType, this.packageSize);
+                    this.onAccept(this.packageType, this.packageSize);
                     this.state = STA_PKG_TYPE;
                     break;
                 default:
                     console.log(buffer.slice(start, end));
-                    this.emit('error', new Error("Unknow ACE package type\"" + this.packageType + "\"."));
+                    this.onError("Unknow ACE package type\"" + this.packageType + "\".");
                     break;
             }
             start += 4;
@@ -359,8 +371,7 @@ PackageParser.prototype.execute = function(buffer, start, end) {
 
         case STA_PKG_DATA:
             if (end - start < this.packageSize) break;
-            this.onpackage && this.onpackage(this.packageType, this.packageSize,
-            buffer.slice(start, start + this.packageSize));
+            this.onAccept(this.packageType, this.packageSize, buffer.slice(start, start + this.packageSize));
             this.state = STA_PKG_TYPE;
             start += this.packageSize;
             break;

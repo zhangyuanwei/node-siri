@@ -701,6 +701,67 @@ exports.fromBuffer = function(data, start, end) { // 解析bplist {{{
     return root;
 }; // }}}
 
+exports.fromPObject = function(obj) { // {{{ 解析PObject类型
+    return parsePObject(obj);
+};
+
+var toString = Object.prototype.toString,
+    parserMap = {
+        "null": function(str) {
+            var ret = new BPlistPlainNode(BPLIST_NULL, null);
+            ret.value = (str == "true" ? true : (str == "false" ? false : null));
+            return ret;
+        },
+        "uint": function(str) {
+            return new BPlistPlainNode(BPLIST_UINT, parseInt(str));
+        },
+        "real": function(str) {
+            return new BPlistPlainNode(BPLIST_REAL, parseFloat(str));
+        },
+        "data": function(str) {
+            return new BPlistDataNode(new Buffer(str, "base64"));
+        },
+        "string": function(str) {
+            return new BPlistPlainNode(BPLIST_STRING, str);
+        },
+        "unicode": function(str) {
+            return new BPlistPlainNode(BPLIST_UNICODE, str);
+        }
+    };
+
+function parsePString(str) {
+    var i = str.indexOf(":"),
+        parser, type;
+    if (i < 1) error("Error PString:\"" + str + "\"");
+    type = str.substring(0, i);
+    parser = parserMap[type];
+    if (!parser) error("Unknow type \"" + type + "\"");
+    return parser(str.substring(i + 1));
+}
+
+function parsePObject(obj) {
+    var ret, key;
+    switch (toString.call(obj)) {
+        case "[object String]":
+            return parsePString(obj);
+        case "[object Array]":
+            ret = new BPlistArrayNode();
+            obj.forEach(function(item) {
+                ret.push(parsePObject(item));
+            });
+            return ret;
+        case "[object Object]":
+            ret = new BPlistDictNode();
+            for (key in obj) {
+                ret.push(new BPlistPlainNode(BPLIST_STRING, key), parsePObject(obj[key]));
+            }
+            return ret;
+        default:
+            error();
+    }
+}
+// }}}
+
 exports.toBuffer = function(rootNode) { // 构建 bplist {{{
     var buffer = new BPlistBuffer(),
         data = buffer.writePlist(rootNode);
