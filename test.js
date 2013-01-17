@@ -2,8 +2,8 @@ var fs = require("fs"),
     siri = require("./siri");
 
 siri.createServer({
-    key: fs.readFileSync('./server.passless.key'),
-    cert: fs.readFileSync('./server.passless.crt')
+    key: fs.readFileSync('./server-key.pem'),
+    cert: fs.readFileSync('./server-cert.pem')
 }, function(command, device) {
     console.log(command);
     if (command == "你好") {

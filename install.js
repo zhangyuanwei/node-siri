@@ -5,13 +5,13 @@ http.createServer(function(req, res) {
     if (/^\/(\?.*)?$/.test(req.url)) {
         res.setHeader("Content-Type", "text/html");
         res.end(fs.readFileSync("./index.html"));
-    } else if (/^\/server\.passless\.crt(\?.*)?$/.test(req.url)) {
+    } else if (/^\/ca.pem(\?.*)?$/.test(req.url)) {
         res.setHeader("Content-Type", "application/x-x509-ca-cert");
-        res.end(fs.readFileSync("./server.passless.crt"));
+        res.end(fs.readFileSync("./server-cert.pem"));
     } else {
         res.writeHead(301, {
             "Location": "/"
         });
         res.end("301 Moved Permanently");
     }
-}).listen(80);
+}).listen(8080);
