@@ -20,8 +20,8 @@ function Server(options, commandListener) { // Server {{{
     }
 
     this.on("secureConnection", secureConnectionListener);
-    this.on("clientError", function(err, conn) {
-        conn.destroy(err);
+    this.on("clientError", function(err) {
+		//console.log(err);
     });
 }
 
