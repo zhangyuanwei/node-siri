@@ -3,6 +3,7 @@ node-siri
 
 nodejs siri proxy.
 
+``` js
     var fs = require("fs"),
     	siri = require("siri"),
     	tmp = 0;
@@ -29,3 +30,4 @@ nodejs siri proxy.
     }).listen(4433, function() {
     	console.log("Proxy start.");
     });
+```
