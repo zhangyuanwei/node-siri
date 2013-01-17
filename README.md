@@ -3,6 +3,10 @@ node-siri
 
 nodejs Siri代理.
 
+1. 想办法将 guzzoni.apple.com 解析到运行代理的机器
+2. 安装证书
+3. OK~
+
 ``` javascript
 var fs = require("fs"),
 	siri = require("siri");
