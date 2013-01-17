@@ -220,7 +220,7 @@ SiriDevice.prototype.end = function(str) {
 };
 // }}}
 
-//Test
+//* Test
 var fs = require("fs"),
     siri = exports,
     tmp = 0;
@@ -230,7 +230,6 @@ function getId() {
     return (tmp < 100 ? "0" : "") + (tmp < 10 ? "0" : "") + tmp;
 }
 
-//*
 siri.createServer({
     key: fs.readFileSync('./server.passless.key'),
     cert: fs.readFileSync('./server.passless.crt')
