@@ -1,7 +1,7 @@
 node-siri
 =========
 
-# nodejs Siri代理.
+ nodejs Siri代理.
 
 ## 开始使用
 
