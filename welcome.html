@@ -1,0 +1,92 @@
+<!DOCTYPE HTML>
+<html>
+    
+    <head>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+		<title>Siri Proxy 安装检测</title>
+		<style type="text/css">
+			body{
+				background:#000;
+				color:#ccc;
+			}
+			.success {
+				color:green;
+			}
+			.fail {
+				color:red;
+			}
+		</style>
+    </head>
+    
+    <body>
+		<pre id="message"></pre>
+		<script type="text/javascript">
+			function ping(url, callback){
+				var img = new Image();
+				img.onload = function(){
+					img = null;
+					callback(true);
+				};
+				img.onerror = function(){
+					img = null;
+					callback(false);
+				}
+				img.src = url + "?r=" + +new Date;
+			}
+			(function(list){
+				function $(id){
+					return document.getElementById(id);
+				}
+				function update(){
+					$("message").innerHTML = message.join("");
+				}
+				var message = [], index = 0, count = list.length;
+
+				function check(){
+					var item = list[index];
+					message.push("<span class=\"msg\">", item.msg, "</span>");
+					item.check(function(success){
+						message.push(success ? "<strong class=\"stat success\">[OK]</strong>" : "<strong class=\"stat fail\">[FAIL]</strong>", "</strong><br />");
+						if(success && item.ok)
+							message.push("<span class=\"info\">", item.ok, "</span><br />");
+						if(!success && item.err)
+							message.push("<span class=\"info\">", item.err, "</span><br />");
+
+						update();
+						if(success && ++index < count){
+							check();
+						}
+					});
+					update();
+				}
+				check();
+			})([
+				{
+					"msg":"检测DNS解析",
+					"err":"请确保 guzzoni.apple.com 域名被解析到代理服务器",
+					"check":function(callback){
+						ping("http://guzzoni.apple.com/ping.gif", callback);
+					}
+				},{
+					"msg":"开启HTTPS",
+					"check":function(callback){
+						ping("http://guzzoni.apple.com/https.gif", callback);
+					}
+				},{
+					"msg":"检测HTTPS连接",
+					"err":"HTTPS连接失败，如未安装证书，请<a href=\"ca\">点此安装</a>.",
+					"check":function(callback){
+						ping("https://guzzoni.apple.com/ping.gif", callback);
+					}
+				},{
+					"msg":"开启Siri代理服务",
+					"ok":"请对Siri说“你好”，<br />代理服务器将回应“Siri代理向你问好”",
+					"check":function(callback){
+						ping("http://guzzoni.apple.com/siri.gif", callback);
+					}
+				}
+			]);
+		</script>
+	</body>
+</html>
