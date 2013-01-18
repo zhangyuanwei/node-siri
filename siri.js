@@ -213,8 +213,8 @@ SiriDevice.prototype.say = function(str, speakable) {
     })));
 };
 
-SiriDevice.prototype.end = function(str) {
-    if (str !== undefined) this.say(str);
+SiriDevice.prototype.end = function(str, speakable) {
+    if (str !== undefined) this.say(str, speakable);
     this.writePackage(this.getCompletedPackage());
     this.completed = true;
 };
