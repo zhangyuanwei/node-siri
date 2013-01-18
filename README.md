@@ -3,14 +3,14 @@ node-siri
 
 # nodejs Siri代理.
 
-## 安装
+## 开始使用
 
 1. 想办法将 guzzoni.apple.com DNS解析到运行代理的机器.
 2. 运行 `sudo node welcome.js` ,welcome.js会使用80和443端口，所以需要root权限.
 3. 通过IOS设备访问 http://guzzoni.apple.com ，系统会自动检测配置.
 4. 写自己的程序，尽情的调戏Siri吧。
 
-## 示例
+## 编程示例
 
 ``` javascript
 var fs = require("fs"),
