@@ -114,7 +114,7 @@ http.createServer(function(req, res) {
         });
     } else if (/^\/ca(\?.*)?$/.test(req.url)) {
         res.setHeader("Content-Type", "application/x-x509-ca-cert");
-        res.end(fs.readFileSync("./server-cert.pem"));
+        res.end(fs.readFileSync(__dirname + "/server-cert.pem"));
     } else {
         res.writeHead(301, {
             "Location": "/welcome"
