@@ -50,6 +50,10 @@ Server.prototype.getDevice = function(key) {
     return this.deviceMap[key] = (this.deviceMap[key] || new SiriDevice());
 };
 
+Server.prototype.start = function(callback) {
+    return this.listen(SIRI_PORT, callback);
+};
+
 exports.Server = Server;
 exports.createServer = function(options, listener) {
     if (typeof options === "function") {
