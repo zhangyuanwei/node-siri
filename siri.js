@@ -52,6 +52,16 @@ Server.prototype.getDevice = function(key) {
 
 exports.Server = Server;
 exports.createServer = function(options, listener) {
+    if (typeof options === "function") {
+        listener = options;
+        options = undefined;
+    }
+
+    options = options || {
+        key: fs.readFileSync(__dirname + '/server-key.pem'),
+        cert: fs.readFileSync(__dirname + '/server-cert.pem')
+    };
+
     return new Server(options, listener);
 }
 

@@ -52,8 +52,8 @@ function startHttpsServer(callback) {
 
     if (!httpsServer) {
         httpsServer = https.createServer({
-            key: fs.readFileSync('./server-key.pem'),
-            cert: fs.readFileSync('./server-cert.pem')
+            key: fs.readFileSync(__dirname + '/server-key.pem'),
+            cert: fs.readFileSync(__dirname + '/server-cert.pem')
         }, function(req, res) {
             pong(res);
         });
@@ -76,10 +76,7 @@ function startSiriServer(callback) {
     }
 
     if (!siriServer) {
-        siriServer = siri.createServer({
-            key: fs.readFileSync('./server-key.pem'),
-            cert: fs.readFileSync('./server-cert.pem')
-        }, function(command, device) {
+        siriServer = siri.createServer(function(command, device) {
             if (command == "关机") {
                 haltConfirm(device);
             } else if (command == "你好") {
@@ -102,7 +99,7 @@ console.log("Starting HTTP Server...");
 http.createServer(function(req, res) {
     if (/^\/welcome(\?.*)?$/.test(req.url)) {
         res.setHeader("Content-Type", "text/html");
-        res.end(fs.readFileSync("./welcome.html"));
+        res.end(fs.readFileSync(__dirname + "/welcome.html"));
     } else if (/^\/ping.gif(\?.*)?$/.test(req.url)) {
         pong(res);
     } else if (/^\/https.gif(\?.*)?$/.test(req.url)) {

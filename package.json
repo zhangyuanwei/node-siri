@@ -1,22 +1,27 @@
 {
-  "name": "node-siri",
-  "version": "1.0.0",
-  "description": "Node.js Siri proxy",
-  "main": "welcome.js",
-  "scripts": {
-    "test": "node test.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/zhangyuanwei/node-siri.git"
-  },
-  "keywords": [
-    "siri",
-    "proxy",
-    "bplist"
-  ],
-  "author": "ZhangYuanwei",
-  "license": "BSD",
-  "readmeFilename": "README.md",
-  "gitHead": "0de50aa69066735f3ab45c5c224079d4bdfe6a02"
+    "name": "node-siri",
+    "version": "1.0.2",
+    "description": "Node.js Siri Proxy",
+    "main": "siri.js",
+    "bin": {
+        "siri": "./bin/siri"
+    },
+    "scripts": {
+        "test": "node test.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zhangyuanwei/node-siri.git"
+    },
+    "keywords": [
+        "siri",
+        "proxy",
+        "node",
+        "bplist",
+        "parser",
+        "fifo"],
+    "author": "zhangyuanwei",
+    "license": "BSD",
+    "readmeFilename": "README.md",
+    "gitHead": "72a0f8dba921f512d6d6cfd17cdaf3ed7b796572"
 }
