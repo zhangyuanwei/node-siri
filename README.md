@@ -20,19 +20,15 @@ siri #测试脚本需要使用80和443端口
 ## 编程示例
 
 ``` javascript
-var fs = require("fs"),
-	siri = require("siri");
+var siri = require("siri");
 
-siri.createServer(function(command, device) {
-	if (command == "你好") {
-		device.end("Siri代理向你问好!");
-	} else {
-		device.proxy();
-	}
-}).listen(443, function() {
-	console.log("Proxy start.");
-});
-
+siri.createServer(function(cmd, dev) {
+    if (/你好/.test(cmd)) {
+        dev.end("Siri代理向你问好.");
+    } else {
+        dev.proxy();
+    }
+}).start();
 ```
 
 ## API
