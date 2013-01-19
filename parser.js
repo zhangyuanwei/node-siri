@@ -76,10 +76,13 @@ Package.prototype.getType = function() {
 };
 
 function HTTPRequestHeader(obj) {
-    var tmp = [];
+    var tmp = [],
+        self = this;
+    this.headers = {};
     tmp.push(obj.method, " ", obj.uri, " HTTP/", obj.version, "\r\n");
     obj.headers.forEach(function(header, index, array) {
         tmp.push(header.name, ":", header.value, "\r\n");
+        self.headers[header.name] = header.value;
     });
     tmp.push("\r\n")
 
@@ -89,10 +92,13 @@ util.inherits(HTTPRequestHeader, Package);
 exports.HTTPRequestHeader = HTTPRequestHeader;
 
 function HTTPResponseHeader(obj) {
-    var tmp = [];
+    var tmp = [],
+        self = this;
+    this.headers = {};
     tmp.push("HTTP/", obj.version, " ", obj.code, " ", obj.reason, "\r\n");
     obj.headers.forEach(function(header, index, array) {
         tmp.push(header.name, ":", header.value, "\r\n");
+        self.headers[header.name] = header.value;
     });
     tmp.push("\r\n")
     Package.call(this, PKG_HTTP_HEADER, new Buffer(tmp.join(""), "ascii"));
@@ -298,7 +304,6 @@ SiriParser.prototype.execute = function(buffer, start, end) {
                     start = start + 4;
                     this.state = STA_ACE_PAYLOAD;
                 } else {
-                    console.log("switch STA_PASSTHROUGH state...\n" + buffer.slice(start, end));
                     this.state = STA_PASSTHROUGH;
                     start = true;
                 }
@@ -362,7 +367,6 @@ PackageParser.prototype.execute = function(buffer, start, end) {
                     this.state = STA_PKG_TYPE;
                     break;
                 default:
-                    console.log(buffer.slice(start, end));
                     this.onError("Unknow ACE package type\"" + this.packageType + "\".");
                     break;
             }

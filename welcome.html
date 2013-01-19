@@ -47,7 +47,7 @@
 					var item = list[index];
 					message.push("<span class=\"msg\">", item.msg, "</span>");
 					item.check(function(success){
-						message.push(success ? "<strong class=\"stat success\">[OK]</strong>" : "<strong class=\"stat fail\">[FAIL]</strong>", "</strong><br />");
+						message.push("\t",success ? "<strong class=\"stat success\">[OK]</strong>" : "<strong class=\"stat fail\">[FAIL]</strong>", "</strong><br />");
 						if(success && item.ok)
 							message.push("<span class=\"info\">", item.ok, "</span><br />");
 						if(!success && item.err)
@@ -69,7 +69,7 @@
 						ping("http://guzzoni.apple.com/ping.gif", callback);
 					}
 				},{
-					"msg":"开启HTTPS",
+					"msg":"启动HTTPS服务",
 					"check":function(callback){
 						ping("http://guzzoni.apple.com/https.gif", callback);
 					}
@@ -80,7 +80,7 @@
 						ping("https://guzzoni.apple.com/ping.gif", callback);
 					}
 				},{
-					"msg":"开启Siri代理服务",
+					"msg":"启动Siri代理服务",
 					"ok":"请对Siri说“你好”，<br />代理服务器将回应“Siri代理向你问好”",
 					"check":function(callback){
 						ping("http://guzzoni.apple.com/siri.gif", callback);

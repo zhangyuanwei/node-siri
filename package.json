@@ -4,7 +4,7 @@
   "description": "Node.js Siri proxy",
   "main": "welcome.js",
   "scripts": {
-    "test": "node welcome.js"
+    "test": "node test.js"
   },
   "repository": {
     "type": "git",

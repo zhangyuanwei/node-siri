@@ -3,6 +3,9 @@ node-siri
 
  nodejs Siri代理.
 
+## 安装
+`npm install node-siri`
+
 ## 开始使用
 
 1. 想办法将 guzzoni.apple.com DNS解析到运行代理的机器.

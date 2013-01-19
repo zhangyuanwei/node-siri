@@ -740,8 +740,9 @@ function parsePString(str) {
 }
 
 function parsePObject(obj) {
-    var ret, key;
-    switch (toString.call(obj)) {
+    var type, ret, key;
+    type = toString.call(obj);
+    switch (type) {
         case "[object String]":
             return parsePString(obj);
         case "[object Array]":
@@ -757,7 +758,7 @@ function parsePObject(obj) {
             }
             return ret;
         default:
-            error();
+            error("Unknow PObject type: " + type);
     }
 }
 // }}}
