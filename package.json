@@ -1,6 +1,6 @@
 {
-    "name": "node-siri",
-    "version": "1.0.4",
+    "name": "siri",
+    "version": "1.0.1",
     "description": "Node.js Siri Proxy",
     "main": "siri.js",
     "bin": {
@@ -9,10 +9,7 @@
     "scripts": {
         "test": "node test.js"
     },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/zhangyuanwei/node-siri.git"
-    },
+    "repository": "",
     "keywords": [
         "siri",
         "proxy",
@@ -22,6 +19,5 @@
         "fifo"],
     "author": "zhangyuanwei",
     "license": "BSD",
-    "readmeFilename": "README.md",
-    "gitHead": "72a0f8dba921f512d6d6cfd17cdaf3ed7b796572"
+    "readmeFilename": "README.md"
 }
