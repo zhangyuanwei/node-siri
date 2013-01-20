@@ -72,11 +72,11 @@ exports.createServer = function(options, listener) {
 function secureConnectionListener(clientStream) {
     var self = this,
         clientParser = new SiriParser(parser.SIRI_REQUEST),
-        clientCompressor = null,
+        serverCompressor = null,
 
         serverStream = tls.connect(SIRI_PORT, SIRI_SERVER),
         serverParser = new SiriParser(parser.SIRI_RESPONSE),
-        serverCompressor = null,
+        clientCompressor = null,
         device = null;
 
     clientStream.pipe(serverStream);
@@ -84,12 +84,11 @@ function secureConnectionListener(clientStream) {
     clientStream.ondata = function(data, start, end) {
         clientParser.parse(data, start, end);
     };
-    //clientStream.on("end", clientStream.onend = function() {
-    //    debug("ClientStream end");
-    //});
-    //clientStream.on("close", function() {
-    //    debug("ClientStream close");
-    //});
+
+    function ondata(chunk) {
+        clientCompressor.write(chunk);
+    }
+
     clientParser.onAccept = function(pkg) {
         switch (pkg.getType()) {
             case parser.PKG_HTTP_HEADER:
@@ -100,21 +99,22 @@ function secureConnectionListener(clientStream) {
                 break;
             case parser.PKG_HTTP_ACEHEADER:
                 //模拟客户端和服务器通讯的压缩器
-                clientCompressor = zlib.createDeflate();
-                clientCompressor._flush = zlib.Z_SYNC_FLUSH;
-                clientCompressor.pipe(serverStream);
-                device.setUpstream(clientCompressor);
-
-                //模拟服务器和客户端通讯的压缩器
                 serverCompressor = zlib.createDeflate();
                 serverCompressor._flush = zlib.Z_SYNC_FLUSH;
-                serverCompressor.pipe(clientStream);
-                device.pipe(serverCompressor);
+                serverCompressor.pipe(serverStream);
+                device.setUpstream(serverCompressor);
+
+                //模拟服务器和客户端通讯的压缩器
+                clientCompressor = zlib.createDeflate();
+                clientCompressor._flush = zlib.Z_SYNC_FLUSH;
+                clientCompressor.pipe(clientStream);
+
+                device.on("data", ondata);
                 break;
             case parser.PKG_ACE_PLIST:
-                if (SIRI_DEBUG) {
-                    fs.writeFileSync("data/" + getId() + ".client.json", pkg.rootNode().stringify());
-                }
+                //if (SIRI_DEBUG) {
+                //    fs.writeFileSync("data/" + getId() + ".client.json", pkg.rootNode().stringify());
+                //}
                 break;
             case parser.PKG_HTTP_UNKNOW:
             case parser.PKG_ACE_UNKNOW:
@@ -125,16 +125,27 @@ function secureConnectionListener(clientStream) {
         }
     };
 
+    function onClientEnd() {
+        clientStream.removeListener("end", onClientEnd);
+        clientStream.ondata = null;
+        clientParser.onAccept = null;
+        serverCompressor && serverCompressor.end();
+        serverStream.end();
+        device.setUpstream(null);
+    }
+    clientStream.on("end", onClientEnd);
+
+    function onClientClose() {
+        debug("onClientClose");
+        //device.removeListener("data", ondata);
+        clientStream.removeListener("close", onClientClose);
+    }
+    clientStream.on("close", onClientClose);
+
     //截获服务器信息
     serverStream.ondata = function(data, start, end) {
         serverParser.parse(data, start, end);
     };
-    //serverStream.on("end", serverStream.onend = function() {
-    //    debug("ServerStream end");
-    //});
-    //serverStream.on("close", function() {
-    //    debug("ServerStream close");
-    //});
 
     serverParser.onAccept = function(pkg) {
         switch (pkg.getType()) {
@@ -144,12 +155,12 @@ function secureConnectionListener(clientStream) {
                 clientStream.write(pkg.getData());
                 break;
             case parser.PKG_ACE_UNKNOW:
-                serverCompressor.write(pkg.getData());
+                clientCompressor.write(pkg.getData());
                 break;
             case parser.PKG_ACE_PLIST:
-                if (SIRI_DEBUG) {
-                    fs.writeFileSync("data/" + getId() + ".server.json", pkg.rootNode().stringify());
-                }
+                //if (SIRI_DEBUG) {
+                //    fs.writeFileSync("data/" + getId() + ".server.json", pkg.rootNode().stringify());
+                //}
                 device.receivePackage(pkg);
                 break;
             default:
@@ -157,6 +168,23 @@ function secureConnectionListener(clientStream) {
                 break;
         }
     };
+
+    function onServerEnd() {
+        serverStream.removeListener("end", onServerEnd);
+        serverStream.ondata = null;
+        serverParser.onAccept = null;
+        device.removeListener("data", ondata);
+        clientCompressor && clientCompressor.end();
+        clientStream.end();
+    }
+    serverStream.on("end", onServerEnd);
+
+    function onServerClose() {
+        debug("onServerClose");
+        //device.removeListener("data", ondata);
+        serverStream.removeListener("close", onServerClose);
+    }
+    serverStream.on("close", onServerClose);
 
     debug("Client connect.");
 }
