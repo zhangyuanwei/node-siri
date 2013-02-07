@@ -98,13 +98,13 @@ function secureConnectionListener(clientStream) {
                 };
                 break;
             case parser.PKG_HTTP_ACEHEADER:
-                //模拟客户端和服务器通讯的压缩器
+                //服务端输出流压缩器
                 serverCompressor = zlib.createDeflate();
                 serverCompressor._flush = zlib.Z_SYNC_FLUSH;
                 serverCompressor.pipe(serverStream);
                 device.setUpstream(serverCompressor);
 
-                //模拟服务器和客户端通讯的压缩器
+                //客户端输出流压缩器
                 clientCompressor = zlib.createDeflate();
                 clientCompressor._flush = zlib.Z_SYNC_FLUSH;
                 clientCompressor.pipe(clientStream);

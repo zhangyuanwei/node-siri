@@ -121,7 +121,11 @@ function ACEBinaryPlist(buffer) {
 
     if (!Buffer.isBuffer(buffer)) {
         this.root = buffer;
-        buffer = bplist.toBuffer(buffer);
+        try {
+            buffer = bplist.toBuffer(buffer);
+        } catch (e) {
+            this.onError("bplist:" + e.message);
+        }
     }
     ACEPackage.call(this, TYPE_PLIST, buffer.length, buffer);
 
@@ -132,7 +136,13 @@ util.inherits(ACEBinaryPlist, ACEPackage);
 exports.ACEBinaryPlist = ACEBinaryPlist;
 
 ACEBinaryPlist.prototype.rootNode = function() {
-    if (!this.root) this.root = bplist.fromBuffer(this.buffer);
+    if (!this.root) {
+        try {
+            this.root = bplist.fromBuffer(this.buffer);
+        } catch (e) {
+            this.onError("bplist:" + e.message);
+        }
+    }
     return this.root;
 };
 

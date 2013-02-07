@@ -191,16 +191,16 @@ BPlistBuffer.prototype.initParam = function() { // 解析参数 {{{
         trailer = this.end - BPLIST_TRL_SIZE;
 
     if (length < BPLIST_MAGIC_SIZE + BPLIST_VERSION_SIZE + BPLIST_TRL_SIZE) {
-        error();
+        error("Error size of plist.");
     }
 
     if (this.buffer.toString("ascii", offset, offset + BPLIST_MAGIC_SIZE) !== BPLIST_MAGIC) {
-        error();
+        error("Not a plist format.");
     }
     offset += BPLIST_MAGIC_SIZE;
 
     if (this.buffer.toString("ascii", offset, offset + BPLIST_VERSION_SIZE) !== BPLIST_VERSION) {
-        error();
+        error("No support version.");
     }
 
     this.offsetSize = this.buffer[trailer + BPLIST_TRL_OFFSIZE_IDX];
@@ -222,7 +222,7 @@ BPlistBuffer.prototype.getUint = function(offset, size) { // 读取无符号整�
         case 8:
             return this.buffer.readUInt32BE(offset) * 0x100000000 + this.buffer.readUInt32BE(offset + 4);
         default:
-            error("Unknow size " + size);
+            error("Unknow uint size " + size);
     }
 }; // }}}
 
@@ -243,13 +243,13 @@ BPlistBuffer.prototype.readSize = function() { // 得到扩展Size(大于15的) 
         if (this.next() && this.type == BPLIST_UINT) {
             size = this.readUint();
         } else {
-            error();
+            error("Can't get next size.");
         }
     }
     return size;
 }; // }}}
 
-BPlistBuffer.prototype.readNull = function() { // 得到NULL类型 true false null {{{
+BPlistBuffer.prototype.readBoolean = function() { // 得到布尔类型 true false {{{
     switch (this.size) {
         case BPLIST_TRUE:
             return true;
@@ -257,7 +257,7 @@ BPlistBuffer.prototype.readNull = function() { // 得到NULL类型 true false nu
             return false;
         case BPLIST_NULL:
         default:
-            return null;
+            error("Error boolean value.");
     }
 }; // }}}
 
@@ -278,7 +278,7 @@ BPlistBuffer.prototype.readReal = function() { // 得到 real 类型 {{{
         case 8:
             return this.buffer.readDoubleBE(offset);
         default:
-            error();
+            error("Unknow real size " + size);
     }
 }; // }}}
 
@@ -326,7 +326,7 @@ BPlistBuffer.prototype.readNode = function() { // 得到节点 {{{
     var node;
     switch (this.type) {
         case BPLIST_NULL:
-            return new BPlistPlainNode(BPLIST_NULL, this.readNull());
+            return new BPlistPlainNode(BPLIST_NULL, this.readBoolean());
         case BPLIST_UINT:
             return new BPlistPlainNode(BPLIST_UINT, this.readUint());
         case BPLIST_REAL:
@@ -426,7 +426,7 @@ BPlistBuffer.prototype.setUint = function(offset, value, size) { // {{{ 写入�
             this.buffer.writeUInt32BE(value | 0, offset + 4);
             break;
         default:
-            error();
+            error("Error size of uint");
             break;
     }
     return size;
@@ -490,14 +490,8 @@ BPlistBuffer.prototype.writeSize = function(size) { // 写入size {{{
     }
 }; // }}} 
 
-BPlistBuffer.prototype.writeNull = function(value) { // 写入NULL节点 {{{
-    if (value === true) {
-        this.writeSize(BPLIST_TRUE);
-    } else if (value === false) {
-        this.writeSize(BPLIST_FALSE);
-    } else { //value === null
-        this.writeSize(BPLIST_NULL);
-    }
+BPlistBuffer.prototype.writeBoolean = function(value) { // 写入布尔节点 {{{
+    this.writeSize(value ? BPLIST_TRUE : BPLIST_FALSE);
 }; // }}}
 
 BPlistBuffer.prototype.writeUint = function(value) { // 写入正整数 {{{
@@ -525,7 +519,7 @@ BPlistBuffer.prototype.writeReal = function(value) { // 写入Real数 {{{
             this.buffer.writeDoubleBE(value, this.offset);
             break;
         default:
-            error();
+            error("Error size of real value.");
     }
     this.offset += size;
 }; // }}}
@@ -581,7 +575,7 @@ BPlistBuffer.prototype.writeNode = function(node) { // 写入节点 {{{
     this.writeType(node.type);
     switch (node.type) {
         case BPLIST_NULL:
-            this.writeNull(node.value);
+            this.writeBoolean(node.value);
             break;
         case BPLIST_UINT:
             this.writeUint(node.value);
@@ -589,7 +583,7 @@ BPlistBuffer.prototype.writeNode = function(node) { // 写入节点 {{{
         case BPLIST_REAL:
             this.writeReal(node.value);
             break;
-            //case BPLIST_DATE:
+        //case BPLIST_DATE:
         case BPLIST_DATA:
             this.writeData(node.value);
             break;
@@ -610,7 +604,7 @@ BPlistBuffer.prototype.writeNode = function(node) { // 写入节点 {{{
             this.writeList(node.indexs);
             break;
         default:
-            error();
+            error("Unknow node type.");
     }
 }; // }}}
 
@@ -654,7 +648,7 @@ BPlistBuffer.prototype.serializeNode = function(node, array, set) { // 找到所
             node.indexs = keys.concat(values);
             break;
         default:
-            error();
+            error("Unknow node type.");
     }
     return index;
 }; // }}}
