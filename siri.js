@@ -1,3 +1,5 @@
+'use strict';
+
 var tls = require('tls'),
     util = require('util'),
     zlib = require('zlib'),
@@ -112,9 +114,11 @@ function secureConnectionListener(clientStream) {
                 device.on("data", ondata);
                 break;
             case parser.PKG_ACE_PLIST:
-                //if (SIRI_DEBUG) {
-                //    fs.writeFileSync("data/" + getId() + ".client.json", pkg.rootNode().stringify());
-                //}
+                if (SIRI_DEBUG) {
+                    var id = getId();
+                    fs.writeFileSync("data/" + id + ".client.json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
+                    debug(id + ":" + bplist.toObject(pkg.rootNode())["class"]);
+                }
                 break;
             case parser.PKG_HTTP_UNKNOW:
             case parser.PKG_ACE_UNKNOW:
@@ -158,9 +162,12 @@ function secureConnectionListener(clientStream) {
                 clientCompressor.write(pkg.getData());
                 break;
             case parser.PKG_ACE_PLIST:
-                //if (SIRI_DEBUG) {
-                //    fs.writeFileSync("data/" + getId() + ".server.json", pkg.rootNode().stringify());
-                //}
+                if (SIRI_DEBUG) {
+                    var id = getId();
+                    //fs.writeFileSync("data/" + id + ".server.bplist", pkg.getData().slice(5));
+                    fs.writeFileSync("data/" + id + ".server.json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
+                    debug("\t" + id + ":" + bplist.toObject(pkg.rootNode())["class"]);
+                }
                 device.receivePackage(pkg);
                 break;
             default:
@@ -190,6 +197,18 @@ function secureConnectionListener(clientStream) {
 }
 // }}}
 
+function getRecognizedText(obj) {
+    var arr;
+    if (obj["class"] != "SpeechRecognized") return null;
+    arr = [];
+    obj.properties.recognition.properties.phrases.forEach(function(item) {
+        item.properties.interpretations[0].properties.tokens.forEach(function(item) {
+            arr.push(item.properties.text);
+        });
+    });
+    return arr.join("");
+}
+
 function SiriDevice() { // Device {{{
     Stream.call(this);
 
@@ -210,18 +229,6 @@ function SiriDevice() { // Device {{{
 
 util.inherits(SiriDevice, Stream);
 
-function getRecognizedText(obj) {
-    var arr;
-    if (obj["class"] != "SpeechRecognized") return null;
-    arr = [];
-    obj.properties.recognition.properties.phrases.forEach(function(item) {
-        item.properties.interpretations[0].properties.tokens.forEach(function(item) {
-            arr.push(item.properties.text);
-        });
-    });
-    return arr.join("");
-}
-
 SiriDevice.prototype.onCommand = function() {
     //Do nothing
 };
@@ -235,13 +242,12 @@ SiriDevice.prototype.setUpstream = function(upstream) {
 };
 
 SiriDevice.prototype.receivePackage = function(pkg) {
-    var obj = pkg.rootNode().toObject();
+    var obj = bplist.toObject(pkg.rootNode());
 
     this.refId = obj.refId;
     this.aceId = obj.aceId;
     this.version = obj.v;
 
-    debug(obj["class"]);
     switch (obj["class"]) {
         case "SpeechRecognized":
             this.serverResponse = [];
@@ -272,7 +278,7 @@ SiriDevice.prototype.getUtteranceView = function(str, speakable, listen) {
             //"dialogIdentifier": "string:Misc#answer",
             "speakableText": "unicode:" + (speakable === undefined ? str : speakable),
             "text": "unicode:" + str,
-            "listenAfterSpeaking": "null:" + (listen ? "true" : "false")
+            "listenAfterSpeaking": "bool:" + (listen ? "true" : "false")
         },
         "group": "string:com.apple.ace.assistant"
     };
@@ -296,9 +302,9 @@ SiriDevice.prototype.flushViews = function() {
     this.writeClient(new parser.ACEBinaryPlist(bplist.fromPObject({
         "class": "string:AddViews",
         "properties": {
-            "temporary": "null:false",
+            "temporary": "bool:false",
             //"dialogPhase": "string:Completion",
-            "scrollToTop": "null:false",
+            "scrollToTop": "bool:false",
             "views": this.viewList,
         },
         "v": "string:" + this.version,

@@ -6,10 +6,16 @@
     "bin": {
         "siri": "./bin/siri"
     },
-    "scripts": {
-        "test": "node test.js"
+    "directories": {
+        "test": "test"
     },
-    "repository": "",
+    "scripts": {
+        "test": "node test/hello.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zhangyuanwei/node-siri.git"
+    },
     "keywords": [
         "siri",
         "proxy",
@@ -19,5 +25,6 @@
         "fifo"],
     "author": "zhangyuanwei",
     "license": "BSD",
+    "gitHead": "a1c84aed02cf58af420decedaf76fdc2433eb529",
     "readmeFilename": "README.md"
 }

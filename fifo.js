@@ -1,3 +1,5 @@
+'use strict';
+
 function Fifo(callback) {
     this.callback = callback;
 
@@ -10,7 +12,7 @@ function Fifo(callback) {
 Fifo.prototype.push = function(buffer, start, end) {
     var length = end - start,
         cache = this.bufferEnd - this.bufferStart,
-        tmp;
+        free, tmp;
 
     if (cache > 0) {
         free = this.bufferSize - this.bufferEnd;

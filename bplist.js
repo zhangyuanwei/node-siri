@@ -1,6 +1,11 @@
+'use strict';
+
 var util = require('util'),
 
-    BPLIST_NULL = 0x00,
+    BPLIST_TIME_START = 978307200000,
+
+    //BPLIST_NULL = 0x00,
+    BPLIST_BOOL = 0x00,
     BPLIST_FALSE = 0x08,
     BPLIST_TRUE = 0x09,
     BPLIST_FILL = 0x0F,
@@ -23,28 +28,49 @@ function error(str) {
 
 // {{{ BPlistNode
 
-function BPlistPlainNode(type, value) {
+// {{{ private
+function hashEncode(str) {
+    return String(str)
+        .replace("\\", "\\\\")
+        .replace(",", "\\,")
+        .replace(":", "\\:");
+}
+// }}}
+
+function BPlistPlainNode(type, value) { // BPlistPlainNode {{{
     this.type = type;
     this.value = value;
 }
 
-BPlistPlainNode.prototype.stringify = function() {
-    return JSON.stringify(this.toObject());
-};
-
-BPlistPlainNode.prototype.toObject = function() {
-    return this.value;
-};
-
 BPlistPlainNode.prototype.hash = function() {
+    //hash value type:value
     return [(this.type >> 4).toString(16), hashEncode(this.valueHash())].join(":");
 };
 
 BPlistPlainNode.prototype.valueHash = function() {
-    return String(this.value);
-};
+    switch (this.type) {
+        case BPLIST_BOOL:
+        case BPLIST_UINT:
+        case BPLIST_REAL:
+        case BPLIST_STRING:
+        case BPLIST_UNICODE:
+            //默认情况下，直接String化Hash值
+            return String(this.value);
+        default:
+            error("Not a plain node:" + this.type);
+    }
+}; // }}}
 
-function BPlistArrayNode() {
+function BPlistDateNode(value) { // BPlistDateNode {{{
+    BPlistPlainNode.call(this, BPLIST_DATE, value);
+}
+util.inherits(BPlistDateNode, BPlistPlainNode);
+
+BPlistDateNode.prototype.valueHash = function() {
+    return this.value.getTime();
+}; // }}}
+
+function BPlistArrayNode() { // BPlistArrayNode {{{
     BPlistPlainNode.call(this, BPLIST_ARRAY, []);
     this.indexs = null;
 }
@@ -54,16 +80,6 @@ BPlistArrayNode.prototype.push = function(value) {
     this.value.push(value);
 };
 
-BPlistArrayNode.prototype.toObject = function() {
-    var ret = [],
-        count = this.value.length;
-    while (count--) {
-        ret.unshift(this.value[count].toObject());
-    }
-
-    return ret;
-};
-
 BPlistArrayNode.prototype.valueHash = function() {
     var tmp = [],
         count = this.value.length;
@@ -71,9 +87,9 @@ BPlistArrayNode.prototype.valueHash = function() {
         tmp.unshift(hashEncode(this.value[count].hash()));
     }
     return tmp.join(",");
-};
+}; // }}}
 
-function BPlistDictNode() {
+function BPlistDictNode() { // BPlistDictNode {{{
     BPlistPlainNode.call(this, BPLIST_DICT, []);
     this.indexs = null;
 }
@@ -81,21 +97,6 @@ util.inherits(BPlistDictNode, BPlistPlainNode);
 
 BPlistDictNode.prototype.push = function(key, value) {
     this.value.push([key, value]);
-};
-
-BPlistDictNode.prototype.toObject = function() {
-    var ret = {},
-    count = this.value.length,
-        index, item, key, value;
-
-    for (index = 0; index < count; index++) {
-        item = this.value[index];
-        key = item[0].value;
-        value = item[1].toObject();
-        ret[key] = value;
-    }
-
-    return ret;
 };
 
 BPlistDictNode.prototype.valueHash = function() {
@@ -107,31 +108,16 @@ BPlistDictNode.prototype.valueHash = function() {
         tmp.unshift([hashEncode(item[0].value), hashEncode(item[1].hash())].join(":"));
     }
     return tmp.join(",");
-};
+}; // }}}
 
-function BPlistData(buffer) {
-    this.buffer = buffer;
-}
-BPlistData.prototype.toJSON = function() {
-    return this.buffer.toString("base64");
-};
-
-function BPlistDataNode(buffer) {
-    BPlistPlainNode.call(this, BPLIST_DATA, new BPlistData(buffer));
+function BPlistDataNode(buffer) { // BPlistDataNode {{{
+    BPlistPlainNode.call(this, BPLIST_DATA, buffer);
 }
 util.inherits(BPlistDataNode, BPlistPlainNode);
 
 BPlistDataNode.prototype.valueHash = function() {
     return this.value.toString("base64");
-};
-
-
-function hashEncode(str) {
-    return String(str)
-        .replace("\\", "\\\\")
-        .replace(",", "\\,")
-        .replace(":", "\\:");
-}
+}; // }}}
 
 // }}}
 
@@ -179,8 +165,8 @@ function BPlistBuffer(buffer, start, end) { // 构造函数 {{{
 
     this.objectIndex = 0;
 
-    this.type = BPLIST_NULL;
-    this.size = BPLIST_NULL;
+    this.type = null; //BPLIST_NULL;
+    this.size = 0; //BPLIST_NULL;
     this.inited = false;
 } // }}}
 
@@ -255,7 +241,6 @@ BPlistBuffer.prototype.readBoolean = function() { // 得到布尔类型 true fal
             return true;
         case BPLIST_FALSE:
             return false;
-        case BPLIST_NULL:
         default:
             error("Error boolean value.");
     }
@@ -280,6 +265,11 @@ BPlistBuffer.prototype.readReal = function() { // 得到 real 类型 {{{
         default:
             error("Unknow real size " + size);
     }
+}; // }}}
+
+BPlistBuffer.prototype.readDate = function() { // 得到 Date 类型 {{{
+    if (this.size != 3) error("Unknow date size " + this.size);
+    return new Date(this.readReal() * 1000 + BPLIST_TIME_START);
 }; // }}}
 
 BPlistBuffer.prototype.readData = function() { // 得到Data类型 {{{
@@ -325,13 +315,14 @@ BPlistBuffer.prototype.readNode = function() { // 得到节点 {{{
     if (!this.next()) return false;
     var node;
     switch (this.type) {
-        case BPLIST_NULL:
-            return new BPlistPlainNode(BPLIST_NULL, this.readBoolean());
+        case BPLIST_BOOL:
+            return new BPlistPlainNode(BPLIST_BOOL, this.readBoolean());
         case BPLIST_UINT:
             return new BPlistPlainNode(BPLIST_UINT, this.readUint());
         case BPLIST_REAL:
             return new BPlistPlainNode(BPLIST_REAL, this.readReal());
-            //case BPLIST_DATE:
+        case BPLIST_DATE:
+            return new BPlistDateNode(this.readDate());
         case BPLIST_DATA:
             return new BPlistDataNode(this.readData());
         case BPLIST_STRING:
@@ -524,6 +515,11 @@ BPlistBuffer.prototype.writeReal = function(value) { // 写入Real数 {{{
     this.offset += size;
 }; // }}}
 
+BPlistBuffer.prototype.writeDate = function(value) { // 写入Date节点 {{{
+    var time = +value;
+    this.writeReal((time - BPLIST_TIME_START) / 1000);
+}; // }}}
+
 BPlistBuffer.prototype.writeData = function(value) { // 写入Data {{{
     var length = value.length;
     this.writeSize(length);
@@ -555,7 +551,7 @@ BPlistBuffer.prototype.writeUnicode = function(value) { // 写入Unicode {{{
 }; // }}}
 
 BPlistBuffer.prototype.writeList = function(value) { // 写入列表 {{{
-    var count, index, length, offset;
+    var count, size, index, length, offset;
     count = value.length;
     size = this.dictParamSize;
     length = count * size;
@@ -574,7 +570,7 @@ BPlistBuffer.prototype.writeNode = function(node) { // 写入节点 {{{
 
     this.writeType(node.type);
     switch (node.type) {
-        case BPLIST_NULL:
+        case BPLIST_BOOL:
             this.writeBoolean(node.value);
             break;
         case BPLIST_UINT:
@@ -583,7 +579,9 @@ BPlistBuffer.prototype.writeNode = function(node) { // 写入节点 {{{
         case BPLIST_REAL:
             this.writeReal(node.value);
             break;
-        //case BPLIST_DATE:
+        case BPLIST_DATE:
+            this.writeDate(node.value);
+            break;
         case BPLIST_DATA:
             this.writeData(node.value);
             break;
@@ -618,10 +616,10 @@ BPlistBuffer.prototype.serializeNode = function(node, array, set) { // 找到所
     set[hash] = index;
 
     switch (node.type) {
-        case BPLIST_NULL:
+        case BPLIST_BOOL:
         case BPLIST_UINT:
         case BPLIST_REAL:
-            //case BPLIST_DATE:
+        case BPLIST_DATE:
         case BPLIST_DATA:
         case BPLIST_STRING:
         case BPLIST_UNICODE:
@@ -680,87 +678,167 @@ BPlistBuffer.prototype.writePlist = function(rootNode) { // 写入整个Plist结
 
 // }}}
 
-exports.fromBuffer = function(data, start, end) { // 解析bplist {{{
-    var buffer, root;
+module.exports = (function() {
 
-    if (start === undefined) {
-        start = 0;
-    }
-    if (end === undefined) {
-        end = start + data.length;
-    }
+    var toString = Object.prototype.toString;
 
-    buffer = new BPlistBuffer(data, start, end);
-    root = buffer.readPlist();
-    return root;
-}; // }}}
+    function fromBuffer(data, start, end) { // 解析bplist {{{
+        var buffer, root;
 
-exports.fromPObject = function(obj) { // {{{ 解析PObject类型
-    return parsePObject(obj);
-};
-
-var toString = Object.prototype.toString,
-    parserMap = {
-        "null": function(str) {
-            var ret = new BPlistPlainNode(BPLIST_NULL, null);
-            ret.value = (str == "true" ? true : (str == "false" ? false : null));
-            return ret;
-        },
-        "uint": function(str) {
-            return new BPlistPlainNode(BPLIST_UINT, parseInt(str));
-        },
-        "real": function(str) {
-            return new BPlistPlainNode(BPLIST_REAL, parseFloat(str));
-        },
-        "data": function(str) {
-            return new BPlistDataNode(new Buffer(str, "base64"));
-        },
-        "string": function(str) {
-            return new BPlistPlainNode(BPLIST_STRING, str);
-        },
-        "unicode": function(str) {
-            return new BPlistPlainNode(BPLIST_UNICODE, str);
+        if (start === undefined) {
+            start = 0;
         }
-    };
+        if (end === undefined) {
+            end = start + data.length;
+        }
 
-function parsePString(str) {
-    var i = str.indexOf(":"),
-        parser, type;
-    if (i < 1) error("Error PString:\"" + str + "\"");
-    type = str.substring(0, i);
-    parser = parserMap[type];
-    if (!parser) error("Unknow type \"" + type + "\"");
-    return parser(str.substring(i + 1));
-}
+        buffer = new BPlistBuffer(data, start, end);
+        root = buffer.readPlist();
+        return root;
+    } // }}}
 
-function parsePObject(obj) {
-    var type, ret, key;
-    type = toString.call(obj);
-    switch (type) {
-        case "[object String]":
-            return parsePString(obj);
-        case "[object Array]":
-            ret = new BPlistArrayNode();
-            obj.forEach(function(item) {
-                ret.push(parsePObject(item));
-            });
-            return ret;
-        case "[object Object]":
-            ret = new BPlistDictNode();
-            for (key in obj) {
-                ret.push(new BPlistPlainNode(BPLIST_STRING, key), parsePObject(obj[key]));
-            }
-            return ret;
-        default:
-            error("Unknow PObject type: " + type);
+    function toBuffer(rootNode) { // 构建 bplist {{{
+        var buffer = new BPlistBuffer(),
+            data = buffer.writePlist(rootNode);
+        return data;
+    } // }}}
+
+    function parsePString(str) { // 解析PString类型 {{{
+        var i = str.indexOf(":"),
+            parser, type, value;
+        if (i < 1) error("Error PString:\"" + str + "\"");
+
+        type = str.substring(0, i);
+        value = str.substring(i + 1);
+        switch (type) {
+            case "bool":
+                return new BPlistPlainNode(BPLIST_BOOL, value == "true");
+            case "uint":
+                return new BPlistPlainNode(BPLIST_UINT, parseInt(value));
+            case "real":
+                return new BPlistPlainNode(BPLIST_REAL, parseFloat(value));
+            case "date":
+                return new BPlistDateNode(new Date(parseInt(value)));
+            case "data":
+                return new BPlistDataNode(new Buffer(value, "base64"));
+            case "string":
+                return new BPlistPlainNode(BPLIST_STRING, value);
+            case "unicode":
+                return new BPlistPlainNode(BPLIST_UNICODE, value);
+            default:
+                error("Unknow type \"" + type + "\"");
+        }
+    } // }}}
+
+    function fromPObject(obj) { // {{{ 解析PObject类型
+        var type, ret, key;
+        type = toString.call(obj);
+        switch (type) {
+            case "[object String]":
+                return parsePString(obj);
+            case "[object Array]":
+                ret = new BPlistArrayNode();
+                obj.forEach(function(item) {
+                    ret.push(fromPObject(item));
+                });
+                return ret;
+            case "[object Object]":
+                ret = new BPlistDictNode();
+                for (key in obj) {
+                    ret.push(new BPlistPlainNode(BPLIST_STRING, key), fromPObject(obj[key]));
+                }
+                return ret;
+            default:
+                error("Unknow PObject type: " + type);
+        }
     }
-}
-// }}}
+    // }}}
 
-exports.toBuffer = function(rootNode) { // 构建 bplist {{{
-    var buffer = new BPlistBuffer(),
-        data = buffer.writePlist(rootNode);
-    return data;
-}; // }}}
+    function toPObject(node) { // 转化为PObject {{{
+        var ret, count,
+        index, item, key, value;
+        switch (node.type) {
+            case BPLIST_BOOL:
+                return "bool:" + String(node.value);
+            case BPLIST_UINT:
+                return "uint:" + String(node.value);
+            case BPLIST_REAL:
+                return "real:" + String(node.value);
+            case BPLIST_DATE:
+                return "date:" + String(node.value.getTime());
+            case BPLIST_DATA:
+                return "data:" + node.value.toString("base64");
+            case BPLIST_STRING:
+                return "string:" + String(node.value);
+            case BPLIST_UNICODE:
+                return "unicode:" + String(node.value);
+            case BPLIST_UID:
+            case BPLIST_ARRAY:
+                ret = [];
+                count = node.value.length;
+                while (count--) {
+                    ret.unshift(toPObject(node.value[count]));
+                }
+                return ret;
+            case BPLIST_SET:
+            case BPLIST_DICT:
+                ret = {};
+                count = node.value.length;
+                for (index = 0; index < count; index++) {
+                    item = node.value[index];
+                    key = item[0].value;
+                    value = toPObject(item[1]);
+                    ret[key] = value;
+                }
+                return ret;
+            default:
+                error();
+        }
+    } // }}}
+
+    function toObject(node) { // {{{ 转化为Object
+        var ret, count,
+        index, item, key, value;
+        switch (node.type) {
+            case BPLIST_BOOL:
+            case BPLIST_UINT:
+            case BPLIST_REAL:
+            case BPLIST_DATE:
+            case BPLIST_DATA:
+            case BPLIST_STRING:
+            case BPLIST_UNICODE:
+                return node.value;
+            case BPLIST_UID:
+            case BPLIST_ARRAY:
+                ret = [];
+                count = node.value.length;
+                while (count--) {
+                    ret.unshift(toObject(node.value[count]));
+                }
+                return ret;
+            case BPLIST_SET:
+            case BPLIST_DICT:
+                ret = {};
+                count = node.value.length;
+                for (index = 0; index < count; index++) {
+                    item = node.value[index];
+                    key = item[0].value;
+                    value = toObject(item[1]);
+                    ret[key] = value;
+                }
+                return ret;
+            default:
+                error();
+        }
+    } // }}}
+
+    return {
+        fromBuffer: fromBuffer,
+        toBuffer: toBuffer,
+        fromPObject: fromPObject,
+        toPObject: toPObject,
+        toObject: toObject
+    };
+})();
 
 // vim600: sw=4 ts=4 fdm=marker syn=javascript
