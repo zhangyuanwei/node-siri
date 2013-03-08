@@ -7,8 +7,10 @@ lib-cov
 *.pid
 *.gz
 
+Makefile
 pids
 logs
 results
 
+format.sh
 npm-debug.log
