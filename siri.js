@@ -68,51 +68,79 @@ exports.createServer = function(options, listener) {
         cert: fs.readFileSync(__dirname + '/server-cert.pem')
     };
 
-    return new Server(options, listener);
-}
+    return Server(options, listener);
+};
 
 function secureConnectionListener(clientStream) {
     var self = this,
+
+        // client -> clientStream -> clientParser -> serverCompressor -> server
+        clientClosed = false,
         clientParser = new SiriParser(parser.SIRI_REQUEST),
         serverCompressor = null,
 
-        serverStream = tls.connect(SIRI_PORT, SIRI_SERVER),
+        // server -> serverStream -> serverParser -> clientCompressor -> client
+        serverClosed = true,
+        serverStream = tls.connect(SIRI_PORT, SIRI_SERVER, function() {
+            serverClosed = false;
+        }),
         serverParser = new SiriParser(parser.SIRI_RESPONSE),
         clientCompressor = null,
         device = null;
 
+    function onClose() {
+        if (clientClosed && serverClosed) {
+            clientParser = null;
+            serverCompressor = null;
+            serverStream = null;
+            serverParser = null;
+            if (device) {
+                device.serverStream = null;
+                device.clientStream = null;
+                device.commandHandler = null;
+                device.answerHandler = null;
+                device = null;
+            }
+        }
+    }
+
     clientStream.pipe(serverStream);
-    //解析请求得到设备
+
+    //解析请求得到设备 {{{
     clientStream.ondata = function(data, start, end) {
         clientParser.parse(data, start, end);
     };
 
-    function ondata(chunk) {
-        clientCompressor.write(chunk);
+    function onCommand(str) {
+        self.emit("command", str, device);
     }
 
     clientParser.onAccept = function(pkg) {
         switch (pkg.getType()) {
+
             case parser.PKG_HTTP_HEADER:
                 device = self.getDevice(pkg.headers["X-Ace-Host"]);
-                device.onCommand = function(str) {
-                    self.emit("command", str, device);
-                };
                 break;
+
             case parser.PKG_HTTP_ACEHEADER:
-                //服务端输出流压缩器
-                serverCompressor = zlib.createDeflate();
-                serverCompressor._flush = zlib.Z_SYNC_FLUSH;
-                serverCompressor.pipe(serverStream);
-                device.setUpstream(serverCompressor);
+                if (device) {
+                    //服务端输出流压缩器
+                    serverCompressor = zlib.createDeflate();
+                    serverCompressor._flush = zlib.Z_SYNC_FLUSH;
+                    serverCompressor.pipe(serverStream);
+                    device.serverStream = serverCompressor;
 
-                //客户端输出流压缩器
-                clientCompressor = zlib.createDeflate();
-                clientCompressor._flush = zlib.Z_SYNC_FLUSH;
-                clientCompressor.pipe(clientStream);
+                    //客户端输出流压缩器
+                    clientCompressor = zlib.createDeflate();
+                    clientCompressor._flush = zlib.Z_SYNC_FLUSH;
+                    clientCompressor.pipe(clientStream);
+                    device.clientStream = clientCompressor;
 
-                device.on("data", ondata);
+                    device.commandHandler = onCommand;
+                    device.answerHandler = null;
+                }
                 break;
+
             case parser.PKG_ACE_PLIST:
                 if (SIRI_DEBUG) {
                     var id = getId();
@@ -135,18 +163,20 @@ function secureConnectionListener(clientStream) {
         clientParser.onAccept = null;
         serverCompressor && serverCompressor.end();
         serverStream.end();
-        device.setUpstream(null);
+        device && (device.serverStream = null);
     }
     clientStream.on("end", onClientEnd);
 
     function onClientClose() {
         debug("onClientClose");
-        //device.removeListener("data", ondata);
         clientStream.removeListener("close", onClientClose);
+        clientClosed = true;
+        onClose();
     }
     clientStream.on("close", onClientClose);
+    // }}}
 
-    //截获服务器信息
+    //截获服务器信息 {{{
     serverStream.ondata = function(data, start, end) {
         serverParser.parse(data, start, end);
     };
@@ -168,7 +198,7 @@ function secureConnectionListener(clientStream) {
                     fs.writeFileSync("data/" + id + ".server.json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
                     debug("\t" + id + ":" + bplist.toObject(pkg.rootNode())["class"]);
                 }
-                device.receivePackage(pkg);
+                device && device.receivePackage(pkg);
                 break;
             default:
                 self.emit("error", "Unknow package type:" + pkg.type + "!");
@@ -180,22 +210,89 @@ function secureConnectionListener(clientStream) {
         serverStream.removeListener("end", onServerEnd);
         serverStream.ondata = null;
         serverParser.onAccept = null;
-        device.removeListener("data", ondata);
         clientCompressor && clientCompressor.end();
+        device && (device.clientCompressor = null);
         clientStream.end();
     }
     serverStream.on("end", onServerEnd);
 
     function onServerClose() {
         debug("onServerClose");
-        //device.removeListener("data", ondata);
         serverStream.removeListener("close", onServerClose);
+        serverClosed = true;
+        onClose();
     }
     serverStream.on("close", onServerClose);
+    // }}}
 
     debug("Client connect.");
 }
 // }}}
+
+function SiriDevice() { // Device {{{
+
+    this.serverStream = null;
+    this.clientStream = null;
+    this.commandHandler = null;
+    this.answerHandler = null;
+
+    this.serverResponse = null;
+    this.viewList = [];
+    this.saying = false;
+    this.asking = false;
+
+    this.aceId = null;
+    this.refId = null;
+    this.version = null;
+}
+
+SiriDevice.prototype.onCommand = function(cmd) {
+    this.commandHandler && this.commandHandler(cmd);
+};
+
+SiriDevice.prototype.onAnswer = function(answer) {
+    this.answerHandler && this.answerHandler(answer);
+};
+
+SiriDevice.prototype.writeServer = function(pkg) {
+    this.serverStream && this.serverStream.write(pkg.getData());
+};
+
+SiriDevice.prototype.writeClient = function(pkg) {
+    this.clientStream && this.clientStream.write(pkg.getData());
+};
+
+SiriDevice.prototype.receivePackage = function(pkg) {
+    var obj = bplist.toObject(pkg.rootNode()),
+        text;
+
+    this.refId = obj.refId;
+    this.aceId = obj.aceId;
+    this.version = obj.v;
+
+    switch (obj["class"]) {
+        case "SpeechRecognized":
+            this.writeClient(pkg);
+
+            text = getRecognizedText(obj);
+            this.serverResponse = [];
+
+            if (this.asking) {
+                this.asking = false;
+                this.onAnswer(text);
+            } else {
+                this.onCommand(text);
+            }
+            break;
+        default:
+            if (this.serverResponse) {
+                this.serverResponse.push(pkg);
+            } else {
+                this.writeClient(pkg);
+            }
+            break;
+    }
+};
 
 function getRecognizedText(obj) {
     var arr;
@@ -208,68 +305,6 @@ function getRecognizedText(obj) {
     });
     return arr.join("");
 }
-
-function SiriDevice() { // Device {{{
-    Stream.call(this);
-
-    this.writable = false;
-    this.readable = true;
-
-    this.upstream = null;
-    this.serverResponse = [];
-    this.viewList = [];
-    this.saying = false;
-    this.proxied = true;
-    this.asking = false;
-
-    this.aceId = null;
-    this.refId = null;
-    this.version = null;
-}
-
-util.inherits(SiriDevice, Stream);
-
-SiriDevice.prototype.onCommand = function() {
-    //Do nothing
-};
-
-SiriDevice.prototype.onAnswer = function() {
-    //Do nothing
-};
-
-SiriDevice.prototype.setUpstream = function(upstream) {
-    this.upstream = upstream;
-};
-
-SiriDevice.prototype.receivePackage = function(pkg) {
-    var obj = bplist.toObject(pkg.rootNode());
-
-    this.refId = obj.refId;
-    this.aceId = obj.aceId;
-    this.version = obj.v;
-
-    switch (obj["class"]) {
-        case "SpeechRecognized":
-            this.serverResponse = [];
-            this.proxied = false;
-
-            this.writeClient(pkg);
-            if (this.asking) {
-                this.asking = false;
-                this.onAnswer(getRecognizedText(obj));
-            } else {
-                this.onCommand(getRecognizedText(obj));
-            }
-            break;
-        default:
-            if (this.proxied) {
-                this.writeClient(pkg);
-            } else {
-                this.serverResponse.push(pkg);
-            }
-            break;
-    }
-};
 
 SiriDevice.prototype.getUtteranceView = function(str, speakable, listen) {
     return {
@@ -328,20 +363,14 @@ SiriDevice.prototype.requestCompleted = function() {
     })));
 };
 
-SiriDevice.prototype.writeServer = function(pkg) {
-    this.upstream.write(pkg.getData());
-};
-
-SiriDevice.prototype.writeClient = function(pkg) {
-    this.emit('data', pkg.getData());
-};
-
 SiriDevice.prototype.proxy = function() {
     var self = this;
-    this.serverResponse.forEach(function(pkg, index) {
-        self.writeClient(pkg);
-    });
-    this.proxied = true;
+    if (this.serverResponse) {
+        this.serverResponse.forEach(function(pkg, index) {
+            self.writeClient(pkg);
+        });
+        this.serverResponse = null;
+    }
 };
 
 SiriDevice.prototype.say = function(str, speakable) {
@@ -354,15 +383,18 @@ SiriDevice.prototype.ask = function(str, speakable, callback) {
         speakable = undefined;
     }
     this.asking = true;
-    this.onAnswer = callback;
+    this.answerHandler = callback;
     this.addView(this.getUtteranceView(str, speakable, true));
 };
 
 SiriDevice.prototype.end = function(str, speakable) {
     if (str !== undefined) this.say(str, speakable);
     this.saying = false;
+    this.serverResponse = null;
     this.flushViews();
     this.requestCompleted();
+    this.proxy();
 };
 // }}}
+
 // vim600: sw=4 ts=4 fdm=marker syn=javascript
