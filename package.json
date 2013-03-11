@@ -1,6 +1,6 @@
 {
     "name": "siri",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Node.js Siri Proxy",
     "main": "siri.js",
     "bin": {
