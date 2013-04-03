@@ -3,8 +3,9 @@
     
     <head>
         <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
-        <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-		<title>Siri Proxy 安装检测</title>
+        <!--meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no" /-->
+        <meta name="viewport" content="width=device-width" />
+		<title>Siri Proxy Installer</title>
 		<style type="text/css">
 			body{
 				background:#000;
@@ -63,25 +64,25 @@
 				check();
 			})([
 				{
-					"msg":"检测DNS解析",
-					"err":"请确保 guzzoni.apple.com 域名被解析到代理服务器",
+				"msg":"Checking DNS<br />检测DNS解析",
+					"err":"Check entry for guzzoni.apple.com !<br />请确保 guzzoni.apple.com 域名被解析到代理服务器",
 					"check":function(callback){
 						ping("http://guzzoni.apple.com/ping.gif", callback);
 					}
 				},{
-					"msg":"启动HTTPS服务",
+					"msg":"Starting HTTPS-Service<br />启动HTTPS服务",
 					"check":function(callback){
 						ping("http://guzzoni.apple.com/https.gif", callback);
 					}
 				},{
-					"msg":"检测HTTPS连接",
-					"err":"HTTPS连接失败，如未安装证书，请<a href=\"ca\">点此安装</a>.",
+					"msg":"Checking HTTPS cert<br />检测HTTPS证书",
+					"err":"pleas install cert from <a href=\"ca\">here</a>.<br />HTTPS连接失败，如未安装证书，请<a href=\"ca\">点此安装</a>.",
 					"check":function(callback){
 						ping("https://guzzoni.apple.com/ping.gif", callback);
 					}
 				},{
-					"msg":"启动Siri代理服务",
-					"ok":"请对Siri说“你好”，<br />代理服务器将回应“Siri代理向你问好”",
+					"msg":"Starting Siri-Service<br />启动Siri代理服务",
+					"ok":"Server running!<br />请对Siri说“你好”，<br />代理服务器将回应“Siri代理向你问好”",
 					"check":function(callback){
 						ping("http://guzzoni.apple.com/siri.gif", callback);
 					}
