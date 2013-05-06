@@ -10,8 +10,7 @@ var tls = require('tls'),
     bplist = require("./bplist"),
     SiriParser = parser.SiriParser,
 
-    SIRI_SERVER = "17.151.230.4",
-    //SIRI_SERVER = "17.174.8.5",
+    SIRI_SERVER = "guzzoni.apple.com",
     SIRI_PORT = 443,
     SIRI_DEBUG = false;
 
@@ -73,66 +72,62 @@ exports.createServer = function(options, listener) {
 
 function secureConnectionListener(clientStream) {
     var self = this,
-
-        // client -> clientStream -> clientParser -> serverCompressor -> server
-        clientClosed = false,
-        clientParser = new SiriParser(parser.SIRI_REQUEST),
-        serverCompressor = null,
-
-        // server -> serverStream -> serverParser -> clientCompressor -> client
-        serverClosed = true,
-        serverStream = tls.connect(SIRI_PORT, SIRI_SERVER, function() {
-            serverClosed = false;
-        }),
-        serverParser = new SiriParser(parser.SIRI_RESPONSE),
-        clientCompressor = null,
+        STAT_UNINIT = 0,
+        STAT_CONNECT = 1,
+        STAT_CLOSED = 2,
+        clientState, clientParser, serverCompressor,
+        serverStream, serverState, serverParser, clientCompressor,
         device = null;
 
-    function onClose() {
-        if (clientClosed && serverClosed) {
-            clientParser = null;
-            serverCompressor = null;
-            serverStream = null;
-            serverParser = null;
-            if (device) {
-                device.serverStream = null;
-                device.clientStream = null;
-                device.commandHandler = null;
-                device.answerHandler = null;
-                device = null;
-            }
-        }
+
+    // client -> clientStream -> clientParser -> serverCompressor -> server
+    clientState = STAT_CONNECT;
+    clientParser = new SiriParser(parser.SIRI_REQUEST);
+    serverCompressor = null;
+
+    // server -> serverStream -> serverParser -> clientCompressor -> client
+    serverStream = tls.connect(SIRI_PORT, SIRI_SERVER, onServerConnect);
+    serverState = STAT_UNINIT;
+    serverParser = new SiriParser(parser.SIRI_RESPONSE);
+    clientCompressor = null;
+
+    function onServerConnect() {
+        debug("Server connect.");
+        serverState = STAT_CONNECT;
     }
+    debug("Client connect.");
 
-    clientStream.pipe(serverStream);
+    clientStream.pipe(serverStream); // pipe client stream to server stream
 
-    //解析请求得到设备 {{{
-    clientStream.ondata = function(data, start, end) {
-        clientParser.parse(data, start, end);
-    };
+    // TODO remove debug code
+    //serverStream.pipe(clientStream);
+    //return;
 
-    function onCommand(str) {
-        self.emit("command", str, device);
+    //setup client stream {{{
+
+    function onClientData(data) {
+        clientParser.parse(data);
     }
+    clientStream.on("data", onClientData);
 
     clientParser.onAccept = function(pkg) {
         switch (pkg.getType()) {
-
             case parser.PKG_HTTP_HEADER:
                 device = self.getDevice(pkg.headers["X-Ace-Host"]);
                 break;
-
             case parser.PKG_HTTP_ACEHEADER:
                 if (device) {
                     //服务端输出流压缩器
-                    serverCompressor = zlib.createDeflate();
-                    serverCompressor._flush = zlib.Z_SYNC_FLUSH;
+                    serverCompressor = zlib.createDeflate({
+                        flush: zlib.Z_SYNC_FLUSH
+                    });
                     serverCompressor.pipe(serverStream);
                     device.serverStream = serverCompressor;
 
                     //客户端输出流压缩器
-                    clientCompressor = zlib.createDeflate();
-                    clientCompressor._flush = zlib.Z_SYNC_FLUSH;
+                    clientCompressor = zlib.createDeflate({
+                        flush: zlib.Z_SYNC_FLUSH
+                    });
                     clientCompressor.pipe(clientStream);
                     device.clientStream = clientCompressor;
 
@@ -140,7 +135,6 @@ function secureConnectionListener(clientStream) {
                     device.answerHandler = null;
                 }
                 break;
-
             case parser.PKG_ACE_PLIST:
                 if (SIRI_DEBUG) {
                     var id = getId();
@@ -157,29 +151,29 @@ function secureConnectionListener(clientStream) {
         }
     };
 
-    function onClientEnd() {
-        clientStream.removeListener("end", onClientEnd);
-        clientStream.ondata = null;
+    function onCommand(str) {
+        self.emit("command", str, device);
+    }
+
+    function onClientClose() {
+        debug("Client close.");
+        clientState = STAT_CLOSED;
+        clientStream.removeListener("close", onClientClose);
+        clientStream.removeListener("data", onClientData);
         clientParser.onAccept = null;
         serverCompressor && serverCompressor.end();
         serverStream.end();
-        device && (device.serverStream = null);
-    }
-    clientStream.on("end", onClientEnd);
-
-    function onClientClose() {
-        debug("onClientClose");
-        clientStream.removeListener("close", onClientClose);
-        clientClosed = true;
         onClose();
     }
     clientStream.on("close", onClientClose);
     // }}}
 
-    //截获服务器信息 {{{
-    serverStream.ondata = function(data, start, end) {
-        serverParser.parse(data, start, end);
-    };
+    //setup server stream {{{
+
+    function onServerData(data) {
+        serverParser.parse(data);
+    }
+    serverStream.on("data", onServerData);
 
     serverParser.onAccept = function(pkg) {
         switch (pkg.getType()) {
@@ -206,26 +200,37 @@ function secureConnectionListener(clientStream) {
         }
     };
 
-    function onServerEnd() {
-        serverStream.removeListener("end", onServerEnd);
-        serverStream.ondata = null;
+    function onServerClose() {
+        debug("Server close.");
+        serverState = STAT_CLOSED;
+        serverStream.removeListener("close", onServerClose);
+        serverStream.removeListener("data", onServerData);
         serverParser.onAccept = null;
         clientCompressor && clientCompressor.end();
-        device && (device.clientCompressor = null);
         clientStream.end();
-    }
-    serverStream.on("end", onServerEnd);
-
-    function onServerClose() {
-        debug("onServerClose");
-        serverStream.removeListener("close", onServerClose);
-        serverClosed = true;
         onClose();
     }
     serverStream.on("close", onServerClose);
     // }}}
 
-    debug("Client connect.");
+    // on client and server closed {{{
+
+    function onClose() {
+        if (clientState === STAT_CLOSED && serverState === STAT_CLOSED) {
+        	debug("Recycling resources.");
+            clientParser = null;
+            serverCompressor = null;
+            serverStream = null;
+            serverParser = null;
+            if (device) {
+                device.serverStream = null;
+                device.clientStream = null;
+                device.commandHandler = null;
+                device.answerHandler = null;
+                device = null;
+            }
+        }
+    } // }}}
 }
 // }}}
 
