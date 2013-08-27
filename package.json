@@ -6,11 +6,8 @@
     "bin": {
         "siri": "./bin/siri"
     },
-    "directories": {
-        "test": "test"
-    },
     "scripts": {
-        "test": "node test/hello.js"
+        "test": "sudo node examples/proxy.js"
     },
     "repository": {
         "type": "git",
@@ -22,9 +19,11 @@
         "node",
         "bplist",
         "parser",
-        "fifo"],
+        "fifo"
+    ],
     "author": "zhangyuanwei",
     "license": "BSD",
-    "gitHead": "a1c84aed02cf58af420decedaf76fdc2433eb529",
-    "readmeFilename": "README.md"
+    "engines": {
+        "node" : ">=0.10"
+    }
 }
