@@ -46,7 +46,7 @@ Where `your.ip.add.ress` is the IP address of the server running
 
 #### Custom DNS Server (Advanced)
 
-If you already have a DNS server on your netowrk, simply create a zone
+If you already have a DNS server on your network, simply create a zone
 file for `guzzoni.apple.com` to point to your `node-siri` server.
 
     $TTL 3600
@@ -116,3 +116,19 @@ called to finalize the transaction.
 
 ### SiriDevice.proxy(): 
 The conversation is handed over to the Siri server for processing.
+
+## Troubleshooting
+
+You should be running all the commands from the main `node-siri`
+directory.
+
+Submit an issue on github with a pastebin of the output of the following
+commands:
+
+    pwd
+    ls -la
+    grep "SIRI_DEBUG" siri.js
+    cat examples/proxy.js
+    openssl x509 -in keys/server-cert.pem -noout -text
+    node -v
+    sudo node examples/proxy.js
