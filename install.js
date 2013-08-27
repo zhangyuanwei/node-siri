@@ -66,8 +66,8 @@ function startHttpsServer(callback) { // {{{
     if (!httpsServer) {
         stopSiriServer(function() {
             httpsServer = https.createServer({
-                key: fs.readFileSync(__dirname + '/server-key.pem'),
-                cert: fs.readFileSync(__dirname + '/server-cert.pem')
+                key: fs.readFileSync(__dirname + '/keys/server-key.pem'),
+                cert: fs.readFileSync(__dirname + '/keys/server-cert.pem')
             }, function(req, res) {
                 pong(res);
             });
@@ -149,7 +149,7 @@ startSiriServer(function() { // {{{
             });
         } else if (/^\/ca(\?.*)?$/.test(req.url)) {
             res.setHeader("Content-Type", "application/x-x509-ca-cert");
-            res.end(fs.readFileSync(__dirname + "/server-cert.pem"));
+            res.end(fs.readFileSync(__dirname + "/keys/server-cert.pem"));
         } else {
             res.writeHead(301, {
                 "Location": "/welcome"
