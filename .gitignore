@@ -11,6 +11,7 @@ Makefile
 pids
 logs
 results
+node_modules
 
 format.sh
 npm-debug.log
