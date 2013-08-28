@@ -13,7 +13,7 @@
         "type": "git",
         "url": "https://github.com/zhangyuanwei/node-siri.git"
     },
-    "dependencies": {
+    "devDependencies": {
         "i18n" : ">=0.4.1"
     },
     "keywords": [
