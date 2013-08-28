@@ -63,8 +63,8 @@ exports.createServer = function(options, listener) {
     }
 
     options = options || {
-        key: fs.readFileSync(__dirname + '/server-key.pem'),
-        cert: fs.readFileSync(__dirname + '/server-cert.pem')
+        key: fs.readFileSync(__dirname + '/keys/server-key.pem'),
+        cert: fs.readFileSync(__dirname + '/keys/server-cert.pem')
     };
 
     return Server(options, listener);
