@@ -25,7 +25,10 @@
         "fifo"
     ],
     "author": "zhangyuanwei",
-    "license": "BSD",
+    "license": "MIT",
+  	"bugs": {
+    	"url": "https://github.com/zhangyuanwei/node-siri/issues"
+  	},
     "engines": {
         "node" : ">=0.10"
     }
