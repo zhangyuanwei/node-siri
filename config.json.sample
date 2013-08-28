@@ -1,0 +1,6 @@
+{
+    "locale": "en",
+    "server": "guzzoni.apple.com",
+    "port": 443,
+    "debug": 0
+}

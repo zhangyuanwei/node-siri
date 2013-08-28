@@ -1,6 +1,6 @@
 "use strict";
 
-var siri = require("../siri"),
+var siri = require("../../siri"),
     readline = require("readline");
 
 
