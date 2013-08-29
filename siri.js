@@ -16,10 +16,12 @@ var tls = require('tls'),
 //   1. Command-line arguments
 //   2. Environment variables
 //   3. The file 'config.json'
-nconf.argv().env().file({ file: './config.json' });
+nconf.argv().env().file({
+    file: './config.json'
+});
 
 i18n.configure({
-    locales:['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ru'],
+    locales: ['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ru'],
     defaultLocale: 'en',
     updateFiles: false,
     extension: '.js',
@@ -28,8 +30,12 @@ i18n.configure({
 i18n.setLocale(nconf.get('locale'));
 
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
-    SIRI_PORT = nconf.get('port') || '443',
+    SIRI_PORT = nconf.get('port') || 443,
     SIRI_DEBUG = nconf.get('debug') || false;
+
+function _(str) {
+    return i18n.__(str);
+}
 
 function toArray(list) {
     return [].slice.call(list, 0);
@@ -47,28 +53,28 @@ function getId() {
 }
 
 function errorHandler(error) {
-    switch(error.code) {
+    switch (error.code) {
         case "EACCES":
-            console.error("[" + i18n.__("ERROR") + "] " + error.code + " :: " +
-                i18n.__('Siri Proxy cannot start on port') + " " + SIRI_PORT);
+            console.error("[" + _("ERROR") + "] " + error.code + " :: " +
+                _('Siri Proxy cannot start on port') + " " + SIRI_PORT);
             if (SIRI_PORT < 1024) {
-                console.warn(i18n.__('Privledged access is required') + ' ' +
-                    i18n.__('to access reserved ports.'));
+                console.warn(_('Privledged access is required') + ' ' +
+                    _('to access reserved ports.'));
             }
             break;
         case "EADDRINUSE":
-            console.error("[" + i18n.__('ERROR') + "] " + error.code + " :: " +
-                i18n.__('The port and address combination is already in use.'));
+            console.error("[" + _('ERROR') + "] " + error.code + " :: " +
+                _('The port and address combination is already in use.'));
             break;
         case "ECONNRESET":
-            console.error("[" + i18n.__('ERROR') + "] " + error.code + " :: " +
-                i18n.__('The connection has been forcefully terminated.'));
+            console.error("[" + _('ERROR') + "] " + error.code + " :: " +
+                _('The connection has been forcefully terminated.'));
             break;
         default:
             if (error == "Error: DEPTH_ZERO_SELF_SIGNED_CERT") {
-                console.error("[" + i18n.__('ERROR') + "] " + "DEPTH_ZERO_SELF_SIGNED_CERT" +
-                    " :: " + i18n.__('Cannot verify self-signed certificate.'));
-                console.warn(i18n.__('Verify your DNS settings on this server.'));
+                console.error("[" + _('ERROR') + "] " + "DEPTH_ZERO_SELF_SIGNED_CERT" +
+                    " :: " + _('Cannot verify self-signed certificate.'));
+                console.warn(_('Verify your DNS settings on this server.'));
                 process.exit(1);
             }
             console.log("*" + error + "*");
@@ -89,6 +95,7 @@ function Server(options, commandListener) { // Server {{{
     this.on("clientError", function(err) {
         debug(err);
     });
+	this.on("error", errorHandler);
 }
 
 util.inherits(Server, tls.Server);
@@ -98,8 +105,8 @@ Server.prototype.getDevice = function(key) {
 };
 
 Server.prototype.start = function(callback) {
-    debug(i18n.__("Siri Proxy starting on port") + ' ' + SIRI_PORT);
-    return this.listen(SIRI_PORT, callback).on('error', errorHandler);
+    debug(_("Siri Proxy starting on port") + ' ' + SIRI_PORT);
+    return this.listen(SIRI_PORT, callback);
 };
 
 exports.Server = Server;
@@ -140,10 +147,10 @@ function secureConnectionListener(clientStream) {
     clientCompressor = null;
 
     function onServerConnect() {
-        debug(i18n.__('Server connected.'));
+        debug(_('Server connected.'));
         serverState = STAT_CONNECT;
     }
-    debug(i18n.__('Client connected.'));
+    debug(_('Client connected.'));
 
     clientStream.pipe(serverStream); // pipe client stream to server stream
 
@@ -204,7 +211,7 @@ function secureConnectionListener(clientStream) {
     }
 
     function onClientClose() {
-        debug(i18n.__('Client disconnected.'));
+        debug(_('Client disconnected.'));
         clientState = STAT_CLOSED;
         clientStream.removeListener("close", onClientClose);
         clientStream.removeListener("data", onClientData);
@@ -249,7 +256,7 @@ function secureConnectionListener(clientStream) {
     };
 
     function onServerClose() {
-        debug(i18n.__('Server disconnected.'));
+        debug(_('Server disconnected.'));
         serverState = STAT_CLOSED;
         serverStream.removeListener("close", onServerClose);
         serverStream.removeListener("data", onServerData);
@@ -265,7 +272,7 @@ function secureConnectionListener(clientStream) {
 
     function onClose() {
         if (clientState === STAT_CLOSED && serverState === STAT_CLOSED) {
-            debug(i18n.__('Recycling resources.'));
+            debug(_('Recycling resources.'));
             clientParser = null;
             serverCompressor = null;
             serverStream = null;

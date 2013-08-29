@@ -107,10 +107,16 @@ function startSiriServer(callback) { // {{{
                 clients.push(socket);
             });
             console.log("Starting siri server...");
+            siriServer.start(function() {
+                console.log("Siri server started.");
+                callback();
+            });
+            /*
             siriServer.listen(443, function() {
                 console.log("Siri server started.");
                 callback();
             });
+			*/
         });
     } else {
         callback();
