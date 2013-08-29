@@ -142,7 +142,7 @@ Server.prototype.initDNSProxy = function(address) {
     if (found) {
         addresses = {};
         addresses[SIRI_SERVER] = address;
-        debug(__("DNS Proxy:") + SIRI_SERVER + " --> " + address);
+        debug(__("DNS Proxy") + ": " + SIRI_SERVER + " --> " + address);
         return dnsproxy.createServer({
             addresses: addresses
         });

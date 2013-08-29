@@ -4,6 +4,7 @@
   "Server connected.": "Serveur connecté.",
   "Server disconnected.": "Serveur déconnecté.",
   "Siri Proxy starting on port": "Siri Proxy à partir sur le port",
+  "DNS Proxy": "DNS Proxy",
   "ERROR": "ERREUR",
   "Siri Proxy cannot start on port": "Siri Proxy ne peut pas démarrer sur le port",
   "Privledged access is required": "Accès Privledged est requis",

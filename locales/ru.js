@@ -4,6 +4,7 @@
   "Server connected.": "Сервер подключен.",
   "Server disconnected.": "Сервер отключен.",
   "Siri Proxy starting on port": "Siri прокси на порт",
+  "DNS Proxy": "DNS прокси",
   "ERROR": "ОШИБКА",
   "Siri Proxy cannot start on port": "Не удается запустить Siri прокси на порт",
   "Privledged access is required": "Требуется доступ к Privledged",
