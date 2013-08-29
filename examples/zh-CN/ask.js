@@ -1,4 +1,4 @@
-var siri = require("../siri");
+var siri = require("../../siri");
 
 siri.createServer(function(cmd, dev) {
     if (/(关机)|(关(闭)?电脑)/.test(cmd)) {
