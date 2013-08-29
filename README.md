@@ -21,8 +21,27 @@ npm update
 
 ## Getting Started
 
-The installation script requires ports 80 and 443 to be open, and should
-run under a privileged account which can open those ports.
+The installation script requires TCP/443 and optionally TCP/80 (for the
+setup, this port can be changed) to be open and should run under a
+privileged account which can open those ports.
+
+Normal operation requires port TCP/443 to be open and optionally UDP/53
+(if using dnsproxy) to be open, and should run under a privileged
+account which can open those ports.
+
+### Configuration
+
+Configuration can come either from the command line or your
+`config.json` file.
+
+1. Copy `config.json.sample` to `config.json`.
+1. Use a text editor to edit your defaults.
+
+While it is recommended to keep your configuration in the file, you may
+wish you temporarily change some settings while testing.  To do so, add
+the argument(s) on the command line.
+
+    sudo node examples/proxy.js --debug 1 --locale zh
 
 ### DNS
 
@@ -30,21 +49,13 @@ You need a way to hijack DNS requests for `guzzoni.apple.com` and send
 them to your server running `node-siri`. You only need to perform one
 of the following DNS procedures.
 
-#### Using dnsmasq (Easy)
+#### Using dnsproxy (Easy)
 
-[dnsmasq](http://www.thekelleys.org.uk/dnsmasq/doc.html) is a light-
-weight, easy to configure DNS forwarder and DHCP server. It is
-designed to provide DNS and, optionally, DHCP, to a small network.
+`node-siri` includes a dns proxy server to simplify things.
 
-Where `your.ip.add.ress` is the IP address of the server running
-`node-siri`, do the following:
-
-1. Install dnsmasq
-1. Edit `/etc/dnsmasq.conf` in your favorite editor
-1. Add the line: `address=/guzzoni.apple.com/your.ip.add.ress`
-1. Start the dnsmasq daemon
-1. Under Settings on your iDevice, edit your DNS Server to be
-your `dnsmasq` server.
+1. Set `dnsproxy` to `true` (or `1`) in `config.json`.
+1. Configure your iDevice to use the `node-siri` server's IP address for
+the first DNS Server.
 
 #### Custom DNS Server (Advanced)
 
@@ -56,26 +67,15 @@ See the `contrib/` directory for a sample zone file.
 ### Setup
 
 1. Run `sudo node install.js`
-1. Browse to http://guzzoni.apple.com from your iDevice.
+1. Browse to http://guzzoni.apple.com from your iDevice (in Safari!)
 1. Install the certificate from the link provided on the webpage.
 1. Reload the webpage.
 1. If everything is green, end the `install.js` process.
-1. Copy `config.json.sample` to `config.json` and edit appropriately.
 1. Run `sudo node examples/en-US/hello.js`
 1. Activate Siri and say "Hello".
 
 Siri should respond with "*Siri Proxy says 'Hello!'*"
 
-#### Configuration
-
-Configuration can come either from the command line or your
-`config.json` file.
-
-While it is recommended to keep your configuration in the file, you may
-wish you temporarily change some settings while testing.  To do so, add
-the argument(s) on the command line.
-
-    sudo node examples/hello.js --debug 1 --locale zh
 
 ## Example
 
@@ -121,8 +121,6 @@ The conversation is handed over to the Siri server for processing.
 
 ## Troubleshooting
 
-* You should be running all the commands from the main `node-siri`
-directory.
 * Ensure your iDevice resolves `guzzoni.apple.com` as your `node-siri`
 server.
 * `DEPTH_ZERO_SELF_SIGNED_CERT` : Ensure your `node-siri` server is
@@ -135,6 +133,9 @@ to itself!
 Submit an issue on github with a [pastebin](http://pastebin.com) (or
 equivilant) of the output of the following commands:
 
+_You should be running these commands from the main `node-siri`
+directory, where `siri.js` is located._
+
     pwd
     ls -la
     cat config.json
@@ -142,4 +143,5 @@ equivilant) of the output of the following commands:
     openssl x509 -in keys/server-cert.pem -noout -text
     nslookup guzzoni.apple.com
     node -v
+    grep "version" package.json
     sudo node examples/proxy.js --debug 1

@@ -24,7 +24,7 @@
         "url": "https://github.com/zhangyuanwei/node-siri.git"
     },
     "dependencies": {
-		"dnsproxy" : ">=0.0.2",
+        "dnsproxy": ">=0.0.2",
         "i18n": ">=0.4.1",
         "nconf": ">=0.6.7"
     },
@@ -38,9 +38,9 @@
     ],
     "author": "zhangyuanwei",
     "license": "MIT",
-  	"bugs": {
-    	"url": "https://github.com/zhangyuanwei/node-siri/issues"
-  	},
+    "bugs": {
+        "url": "https://github.com/zhangyuanwei/node-siri/issues"
+    },
     "engines": {
         "node" : ">=0.10"
     }
