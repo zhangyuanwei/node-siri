@@ -2,5 +2,6 @@
     "locale": "en",
     "server": "guzzoni.apple.com",
     "port": 443,
-    "debug": 0
+    "debug": false,
+    "dnsproxy":true
 }
