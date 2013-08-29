@@ -19,9 +19,10 @@ var tls = require('tls'),
 nconf.argv().env().file({ file: './config.json' });
 
 i18n.configure({
-    locales:['en', 'zh'],
+    locales:['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ru'],
     defaultLocale: 'en',
     updateFiles: false,
+    extension: '.js',
     directory: __dirname + '/locales'
 });
 i18n.setLocale(nconf.get('locale'));
