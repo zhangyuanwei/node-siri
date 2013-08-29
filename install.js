@@ -10,40 +10,12 @@ var http = require("http"),
     siriServer = null,
     clients = [];
 
-function haltConfirm(device) { //{{{
-    device.ask("你真的想要我帮你关机吗?(确认/取消)", "你真的想要我帮你关机吗?", function(answer) {
-        if (answer == "确认") {
-            device.say("好的，3秒后关机...");
-            setTimeout(function() {
-                device.say("3");
-                setTimeout(function() {
-                    device.say("2");
-                    setTimeout(function() {
-                        device.say("1");
-                        setTimeout(function() {
-                            device.end("正在关机...");
-                            require('child_process').exec("halt");
-                        }, 1000);
-                    }, 1000);
-                }, 1000);
-            }, 2000);
-        } else if (answer == "取消") {
-            device.end("好的，自己的事情自己做!");
-        } else {
-            device.say("我听不大懂“" + answer + "”.", "我听不大懂.");
-            haltConfirm(device);
-        }
-    });
-} // }}}
-
 function commandHandle(command, device) { //{{{
-    if (command == "关机") {
-        haltConfirm(device);
-    } else if (command == "你好") {
-        device.say("Siri代理向你问好.");
-        device.say("我现在能干的事情有:");
-        device.say("1.关机");
-        device.end("没了^_^");
+    console.log("Command:“" + command + "”");
+    if (/Hello/.test(cmd)) {
+        dev.end("Siri Proxy says Hello!");
+    } else if (/你好/.test(cmd)) {
+        dev.end("Siri代理向你问好!");
     } else {
         device.proxy();
     }
@@ -140,9 +112,9 @@ function stopSiriServer(callback) { // {{{
 startSiriServer(function() { // {{{
     console.log("Starting HTTP Server...");
     http.createServer(function(req, res) {
-        if (/^\/welcome(\?.*)?$/.test(req.url)) {
+        if (/^\/(\?.*)?$/.test(req.url)) {
             res.setHeader("Content-Type", "text/html");
-            res.end(fs.readFileSync(__dirname + "/welcome.html"));
+            res.end(fs.readFileSync(__dirname + "/install.html"));
         } else if (/^\/ping.gif(\?.*)?$/.test(req.url)) {
             pong(res);
         } else if (/^\/https.gif(\?.*)?$/.test(req.url)) {
@@ -157,10 +129,8 @@ startSiriServer(function() { // {{{
             res.setHeader("Content-Type", "application/x-x509-ca-cert");
             res.end(fs.readFileSync(__dirname + "/keys/server-cert.pem"));
         } else {
-            res.writeHead(301, {
-                "Location": "/welcome"
-            });
-            res.end("301 Moved Permanently");
+            res.writeHead(404);
+            res.end("404 Not Found!");
         }
     }).listen(80, function() {
         console.log("HTTP Server started.");
