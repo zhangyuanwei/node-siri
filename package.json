@@ -2,6 +2,16 @@
     "name": "siri",
     "version": "1.0.8",
     "description": "Node.js Siri Proxy",
+    "contributors": [
+        {
+            "name": "Zhang Yuanwei",
+            "email": "zhangyuanwei1988@gmail.com"
+        },
+        {
+            "name": "Justin J. Novack",
+            "email": "jnovack@gmail.com"
+        }
+    ],
     "main": "siri.js",
     "bin": {
         "siri": "./bin/siri"
@@ -13,8 +23,9 @@
         "type": "git",
         "url": "https://github.com/zhangyuanwei/node-siri.git"
     },
-    "devDependencies": {
-        "i18n" : ">=0.4.1"
+    "dependencies": {
+        "i18n": ">=0.4.1",
+        "nconf": ">=0.6.7"
     },
     "keywords": [
         "siri",
