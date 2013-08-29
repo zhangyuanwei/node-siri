@@ -127,7 +127,7 @@ function stopSiriServer(callback) { // {{{
     if (siriServer) {
         console.log("Stopping siri server...");
         destroySockets();
-        siriServer.close(function() {
+        siriServer.stop(function() {
             siriServer = null;
             console.log("Siri server stopped.");
             callback();

@@ -4,6 +4,7 @@
     "Server connected.": "服务器连接",
     "Server disconnected.": "服务器断开",
     "Siri Proxy starting on port" : "Siri的代理开始接口",
+    "DNS Proxy:": "DNS 代理:",
     "ERROR": "错误",
     "Siri Proxy cannot start on port": "Siri的代理无法启动端口",
     "Privledged access is required": "具有优越的访问是必需的",

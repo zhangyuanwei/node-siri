@@ -5,6 +5,10 @@ var tls = require('tls'),
     zlib = require('zlib'),
     fs = require('fs'),
     Stream = require('stream'),
+    net = require('net'),
+    os = require('os'),
+
+    dnsproxy = require('dnsproxy'),
     i18n = require("i18n"),
     nconf = require("nconf"),
 
@@ -31,7 +35,8 @@ i18n.setLocale(nconf.get('locale'));
 
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
     SIRI_PORT = nconf.get('port') || 443,
-    SIRI_DEBUG = nconf.get('debug') || false;
+    SIRI_DEBUG = nconf.get('debug') || false,
+    DNS_PROXY = nconf.get('dnsproxy') || true;
 
 function _(str) {
     return i18n.__(str);
@@ -86,6 +91,7 @@ function Server(options, commandListener) { // Server {{{
     tls.Server.call(this, options);
 
     this.deviceMap = {};
+    this.dnsProxy = this.initDNSProxy(DNS_PROXY);
 
     if (commandListener) {
         this.on("command", commandListener);
@@ -95,10 +101,48 @@ function Server(options, commandListener) { // Server {{{
     this.on("clientError", function(err) {
         debug(err);
     });
-	this.on("error", errorHandler);
+    this.on("error", errorHandler);
 }
 
 util.inherits(Server, tls.Server);
+
+Server.prototype.initDNSProxy = function(address) {
+    var interfaces, found, name, ips, length, index, ip,
+        addresses;
+    if (!address) return null;
+
+    found = true;
+    if (!net.isIPv4(address)) {
+        found = false;
+        interfaces = os.networkInterfaces();
+        for (name in interfaces) {
+            if (interfaces.hasOwnProperty(name)) {
+                ips = interfaces[name];
+                length = ips.length;
+                for (index = 0; index < length; index++) {
+                    ip = ips[index];
+                    address = ip.address;
+                    if (!ip.internal && ip.family == "IPv4" && net.isIPv4(address)) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (found) {
+        addresses = {};
+        addresses[SIRI_SERVER] = address;
+        debug(_("DNS Proxy:") + SIRI_SERVER + " --> " + address);
+        return dnsproxy.createServer({
+            addresses: addresses
+        });
+    }
+
+    return null;
+};
+
 
 Server.prototype.getDevice = function(key) {
     return this.deviceMap[key] = (this.deviceMap[key] || new SiriDevice());
@@ -106,7 +150,13 @@ Server.prototype.getDevice = function(key) {
 
 Server.prototype.start = function(callback) {
     debug(_("Siri Proxy starting on port") + ' ' + SIRI_PORT);
+    this.dnsProxy && this.dnsProxy.start();
     return this.listen(SIRI_PORT, callback);
+};
+
+Server.prototype.stop = function() {
+    this.dnsProxy && this.dnsProxy.close();
+    this.close();
 };
 
 exports.Server = Server;

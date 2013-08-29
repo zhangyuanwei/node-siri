@@ -1,6 +1,6 @@
 {
     "name": "siri",
-    "version": "1.0.8",
+    "version": "1.1.0",
     "description": "Node.js Siri Proxy",
     "contributors": [
         {
@@ -24,6 +24,7 @@
         "url": "https://github.com/zhangyuanwei/node-siri.git"
     },
     "dependencies": {
+		"dnsproxy" : ">=0.0.2",
         "i18n": ">=0.4.1",
         "nconf": ">=0.6.7"
     },
