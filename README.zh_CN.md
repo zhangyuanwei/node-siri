@@ -7,13 +7,13 @@ node-siri
 
 ``` shell
 npm install siri
-siri #测试脚本需要使用80和443端口
+siri #测试脚本需要使用80、443和53端口
 ```
 
 ## 开始使用
 
-1. 想办法将 guzzoni.apple.com DNS解析到运行代理的机器,（如果越狱了，可以直接改host。没有越狱的话，也可以通过架设DNS代理服务器然后修改路由器的DNS服务器来实现）.
-2. 运行 `sudo node install.js` ,Siri代理使用443端口,检测界面使用80端口（可选）.
+1. 运行 `sudo node install.js` ,Siri代理使用443(siri)和53(dns)端口,检测界面使用80端口(可选).
+2. 更改IOS设备的DNS服务器为运行node-siri机器的IP.
 3. 通过IOS设备访问 http://guzzoni.apple.com ，系统会自动检测配置.
 4. 写自己的程序，尽情的调戏Siri吧。
 
