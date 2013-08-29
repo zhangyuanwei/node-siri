@@ -1,6 +1,8 @@
 node-siri
 =========
 
+[![NPM version](https://badge.fury.io/js/siri.png)](http://badge.fury.io/js/siri)
+
 `node-siri` is a light-weight Siri Proxy written in Node.JS that does
 not require you to jailbreak your device.
 
