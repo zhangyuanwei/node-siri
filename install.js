@@ -10,14 +10,14 @@ var http = require("http"),
     siriServer = null,
     clients = [];
 
-function commandHandle(command, device) { //{{{
-    console.log("Command:“" + command + "”");
+function commandHandle(cmd, dev) { //{{{
+    console.log("Command:“" + cmd + "”");
     if (/Hello/.test(cmd)) {
         dev.end("Siri Proxy says Hello!");
     } else if (/你好/.test(cmd)) {
         dev.end("Siri代理向你问好!");
     } else {
-        device.proxy();
+        dev.proxy();
     }
 } // }}}
 

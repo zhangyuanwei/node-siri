@@ -292,6 +292,7 @@ function secureConnectionListener(clientStream) {
         clientStream.removeListener("close", onClientClose);
         clientStream.removeListener("data", onClientData);
         clientParser.onAccept = null;
+        delete clientParser.onAccept;
         serverCompressor && serverCompressor.end();
         serverStream.end();
         onClose();
@@ -333,6 +334,7 @@ function secureConnectionListener(clientStream) {
         serverStream.removeListener("close", onServerClose);
         serverStream.removeListener("data", onServerData);
         serverParser.onAccept = null;
+        delete serverParser.onAccept;
         clientCompressor && clientCompressor.end();
         clientStream.end();
         onClose();
