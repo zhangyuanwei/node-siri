@@ -36,6 +36,7 @@ i18n.setLocale(nconf.get('locale'));
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
     SIRI_PORT = nconf.get('port') || 443,
     SIRI_DEBUG = nconf.get('debug') || false,
+    DUMP_DATA = nconf.get('dumpdata') || false,
     DNS_PROXY = nconf.get('dnsproxy') || true;
 
 function __(str) {
@@ -50,11 +51,18 @@ function debug() {
     if (SIRI_DEBUG) return console.log.apply(console, toArray(arguments));
 }
 
-var id = 0;
+function fixNum(num, len) {
+    num |= 0;
+    len -= String(num).length;
+    return (len > 0 ? (new Array(len + 1)).join("0") : "") + num;
+}
 
-function getId() {
-    id++;
-    return (id < 100 ? "0" : "") + (id < 10 ? "0" : "") + id;
+function dumpPackage(type, pkg) {
+    if (!DUMP_DATA) return;
+
+    var id = dumpPackage.__id__ || 1;
+    fs.writeFileSync("data/" + fixNum(id, 4) + "." + type + ".json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
+    dumpPackage.__id__ = ++id;
 }
 
 function errorHandler(error) {
@@ -154,9 +162,30 @@ Server.prototype.start = function(callback) {
     return this.listen(SIRI_PORT, callback);
 };
 
-Server.prototype.stop = function() {
-    this.dnsProxy && this.dnsProxy.close();
-    this.close();
+Server.prototype.stop = function(callback) {
+    var self = this,
+        serviceCount = 1,
+        dnsProxy = self.dnsProxy;
+
+    if (callback)
+        self.once("stop", callback);
+
+    if (dnsProxy) {
+        serviceCount++;
+        dnsProxy.once("close", onclose);
+        dnsProxy.close();
+    }
+
+    self.once("close", onclose);
+    self.close();
+
+    function onclose() {
+        if (!--serviceCount) {
+            self.emit("stop");
+            dnsProxy = null;
+            self = null;
+        }
+    }
 };
 
 exports.Server = Server;
@@ -241,11 +270,8 @@ function secureConnectionListener(clientStream) {
                 }
                 break;
             case parser.PKG_ACE_PLIST:
-                if (SIRI_DEBUG) {
-                    var id = getId();
-                    fs.writeFileSync("data/" + id + ".client.json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
-                    debug(id + ":" + bplist.toObject(pkg.rootNode())["class"]);
-                }
+                debug("<-- " + bplist.toObject(pkg.rootNode())["class"]);
+                dumpPackage("client", pkg);
                 break;
             case parser.PKG_HTTP_UNKNOW:
             case parser.PKG_ACE_UNKNOW:
@@ -291,12 +317,8 @@ function secureConnectionListener(clientStream) {
                 clientCompressor.write(pkg.getData());
                 break;
             case parser.PKG_ACE_PLIST:
-                if (SIRI_DEBUG) {
-                    var id = getId();
-                    //fs.writeFileSync("data/" + id + ".server.bplist", pkg.getData().slice(5));
-                    fs.writeFileSync("data/" + id + ".server.json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
-                    debug("\t" + id + ":" + bplist.toObject(pkg.rootNode())["class"]);
-                }
+                debug("--> " + bplist.toObject(pkg.rootNode())["class"]);
+                dumpPackage("server", pkg);
                 device && device.receivePackage(pkg);
                 break;
             default:
@@ -408,9 +430,13 @@ function getRecognizedText(obj) {
     var arr;
     if (obj["class"] != "SpeechRecognized") return null;
     arr = [];
+    var removeSpace = true;
     obj.properties.recognition.properties.phrases.forEach(function(item) {
         item.properties.interpretations[0].properties.tokens.forEach(function(item) {
-            arr.push(item.properties.text);
+            var properties = item.properties;
+            removeSpace = removeSpace || properties.removeSpaceBefore;
+            arr.push(removeSpace ? "" : " ", properties.text);
+            removeSpace = properties.removeSpaceAfter;
         });
     });
     return arr.join("");

@@ -3,5 +3,6 @@
     "server": "guzzoni.apple.com",
     "port": 443,
     "debug": false,
+	"dumpdata":false,
     "dnsproxy":true
 }
