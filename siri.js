@@ -39,7 +39,6 @@ i18n.setLocale(nconf.get('locale'));
 
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
     SIRI_PORT = nconf.get('port') || 443,
-    SIRI_DEBUG = nconf.get('debug') || false,
     DUMP_DATA = nconf.get('dumpdata') || false,
     DNS_PROXY = nconf.get('dnsproxy') || true;
 
@@ -50,10 +49,6 @@ function __(str) {
 function toArray(list) {
     return [].slice.call(list, 0);
 }
-
-/* function debug() {
-    if (SIRI_DEBUG) return console.log.apply(console, toArray(arguments));
-} */
 
 function fixNum(num, len) {
     num |= 0;
