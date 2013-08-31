@@ -1,3 +1,4 @@
+/*jslint node: true, nomen: true, plusplus: true, white: true */
 'use strict';
 
 var tls = require('tls'),
@@ -43,8 +44,8 @@ i18n.setLocale(nconf.get('locale'));
 
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
     SIRI_PORT = nconf.get('port') || 443,
-    DUMP_DATA = (nconf.get('dumpdata') == null) ? false : nconf.get('dumpdata'),
-    DNS_PROXY = (nconf.get('dnsproxy') == null) ? true : nconf.get('dnsproxy');
+    DUMP_DATA = (nconf.get('dumpdata') === null) ? false : nconf.get('dumpdata'),
+    DNS_PROXY = (nconf.get('dnsproxy') === null) ? true : nconf.get('dnsproxy');
 
 function __(str) {
     return i18n.__(str);
@@ -86,7 +87,7 @@ function errorHandler(error) {
                 __('The connection has been forcefully terminated.'));
             break;
         default:
-            if (error == "Error: DEPTH_ZERO_SELF_SIGNED_CERT") {
+            if (error === "Error: DEPTH_ZERO_SELF_SIGNED_CERT") {
                 console.error("[" + __('ERROR') + "] " + "DEPTH_ZERO_SELF_SIGNED_CERT" +
                     " :: " + __('Cannot verify self-signed certificate.'));
                 console.warn(__('Verify your DNS settings on this server.'));
@@ -97,7 +98,9 @@ function errorHandler(error) {
 }
 
 function Server(options, commandListener) { // Server {{{
-    if (!(this instanceof Server)) return new Server(options, commandListener);
+    if (!(this instanceof Server)) {
+        return new Server(options, commandListener);
+    }
     tls.Server.call(this, options);
 
     this.deviceMap = {};
@@ -120,7 +123,9 @@ util.inherits(Server, tls.Server);
 Server.prototype.initDNSProxy = function(address) {
     var interfaces, found, name, ips, length, index, ip,
         addresses;
-    if (!address) return null;
+    if (!address) {
+        return null;
+    }
 
     found = true;
     if (!net.isIPv4(address)) {
@@ -133,7 +138,7 @@ Server.prototype.initDNSProxy = function(address) {
                 for (index = 0; index < length; index++) {
                     ip = ips[index];
                     address = ip.address;
-                    if (!ip.internal && ip.family == "IPv4" && net.isIPv4(address)) {
+                    if (!ip.internal && ip.family === "IPv4" && net.isIPv4(address)) {
                         found = true;
                         break;
                     }
