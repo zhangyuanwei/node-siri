@@ -99,8 +99,9 @@ function Server(options, commandListener) { // Server {{{
     tls.Server.call(this, options);
 
     this.deviceMap = {};
-    this.dnsProxy = this.initDNSProxy(DNS_PROXY);
-
+    if (DNS_PROXY) {
+        this.dnsProxy = this.initDNSProxy(DNS_PROXY);
+    }
     if (commandListener) {
         this.on("command", commandListener);
     }
@@ -158,7 +159,9 @@ Server.prototype.getDevice = function(key) {
 
 Server.prototype.start = function(callback) {
     debug(__("Siri Proxy starting on port") + ' ' + SIRI_PORT);
-    this.dnsProxy && this.dnsProxy.start();
+    if (DNS_PROXY) {
+        this.dnsProxy && this.dnsProxy.start();
+    }
     return this.listen(SIRI_PORT, callback);
 };
 
