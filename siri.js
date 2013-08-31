@@ -57,8 +57,6 @@ function fixNum(num, len) {
 }
 
 function dumpPackage(type, pkg) {
-    if (!DUMP_DATA) return;
-
     var id = dumpPackage.__id__ || 1;
     fs.writeFileSync("data/" + fixNum(id, 4) + "." + type + ".json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
     debug(fixNum(id,4) + "." + type + ".json");
@@ -272,7 +270,9 @@ function secureConnectionListener(clientStream) {
                 break;
             case parser.PKG_ACE_PLIST:
                 debug("<-- " + bplist.toObject(pkg.rootNode())["class"]);
-                dumpPackage("client", pkg);
+                if (DUMP_DATA) {
+                    dumpPackage("client", pkg);
+                }
                 break;
             case parser.PKG_HTTP_UNKNOW:
             case parser.PKG_ACE_UNKNOW:
@@ -321,7 +321,9 @@ function secureConnectionListener(clientStream) {
                 break;
             case parser.PKG_ACE_PLIST:
                 debug("--> " + bplist.toObject(pkg.rootNode())["class"]);
-                dumpPackage("server", pkg);
+                if (DUMP_DATA) {
+                    dumpPackage("server", pkg);
+                }
                 device && device.receivePackage(pkg);
                 break;
             default:
