@@ -43,8 +43,8 @@ i18n.setLocale(nconf.get('locale'));
 
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
     SIRI_PORT = nconf.get('port') || 443,
-    DUMP_DATA = nconf.get('dumpdata') || false,
-    DNS_PROXY = nconf.get('dnsproxy') || true;
+    DUMP_DATA = (nconf.get('dumpdata') == null) ? false : nconf.get('dumpdata'),
+    DNS_PROXY = (nconf.get('dnsproxy') == null) ? true : nconf.get('dnsproxy');
 
 function __(str) {
     return i18n.__(str);
