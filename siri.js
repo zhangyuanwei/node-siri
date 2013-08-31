@@ -8,6 +8,10 @@ var tls = require('tls'),
     net = require('net'),
     os = require('os'),
 
+    debug = require('debug')('siri:debug'),
+    warn = require('debug')('siri:warn'),
+    error = require('debug')('siri:error'),
+
     dnsproxy = require('dnsproxy'),
     i18n = require("i18n"),
     nconf = require("nconf"),
@@ -47,9 +51,9 @@ function toArray(list) {
     return [].slice.call(list, 0);
 }
 
-function debug() {
+/* function debug() {
     if (SIRI_DEBUG) return console.log.apply(console, toArray(arguments));
-}
+} */
 
 function fixNum(num, len) {
     num |= 0;
@@ -62,6 +66,7 @@ function dumpPackage(type, pkg) {
 
     var id = dumpPackage.__id__ || 1;
     fs.writeFileSync("data/" + fixNum(id, 4) + "." + type + ".json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
+    debug(fixNum(id,4) + "." + type + ".json");
     dumpPackage.__id__ = ++id;
 }
 
@@ -90,7 +95,7 @@ function errorHandler(error) {
                 console.warn(__('Verify your DNS settings on this server.'));
                 process.exit(1);
             }
-            console.log("*" + error + "*");
+            console.error("Undefined error: " + error);
     }
 }
 
@@ -107,7 +112,7 @@ function Server(options, commandListener) { // Server {{{
 
     this.on("secureConnection", secureConnectionListener);
     this.on("clientError", function(err) {
-        debug(err);
+        warn(err);
     });
     this.on("error", errorHandler);
 }
@@ -163,6 +168,7 @@ Server.prototype.start = function(callback) {
 };
 
 Server.prototype.stop = function(callback) {
+    debug(__("Siri Proxy stopping") + '...');
     var self = this,
         serviceCount = 1,
         dnsProxy = self.dnsProxy;
@@ -277,7 +283,8 @@ function secureConnectionListener(clientStream) {
             case parser.PKG_ACE_UNKNOW:
                 break;
             default:
-                self.emit("error", "Unknow package type:" + pkg.type + "!");
+                warn(__("Unknown package type") + ":" + pkg.type);
+                self.emit("error", "Unknown package type:" + pkg.type + "!");
                 break;
         }
     };
@@ -441,10 +448,12 @@ function getRecognizedText(obj) {
             removeSpace = properties.removeSpaceAfter;
         });
     });
+    error('--> "' + arr.join("") + '"');
     return arr.join("");
 }
 
 SiriDevice.prototype.getUtteranceView = function(str, speakable, listen) {
+    error('<-- "' + str + '"');
     return {
         "class": "string:AssistantUtteranceView",
         "properties": {

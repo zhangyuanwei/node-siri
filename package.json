@@ -24,6 +24,7 @@
         "url": "https://github.com/zhangyuanwei/node-siri.git"
     },
     "dependencies": {
+        "debug": "*",
         "dnsproxy": ">=0.0.2",
         "i18n": ">=0.4.1",
         "nconf": ">=0.6.7"
