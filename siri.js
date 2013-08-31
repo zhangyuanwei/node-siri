@@ -24,9 +24,11 @@ var tls = require('tls'),
 //   1. Command-line arguments
 //   2. Environment variables
 //   3. The file 'config.json'
-nconf.argv().env().file({
-    file: './config.json'
-});
+nconf.argv()
+     .env()
+     .file({
+        file: './config.json'
+     });
 
 i18n.configure({
     locales: ['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ru'],
