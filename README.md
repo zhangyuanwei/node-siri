@@ -130,6 +130,33 @@ resolving `guzzoni.apple.com` to the internet. It should not be pointing
 to itself!
 * `EACCES` : Start `node` in privledged mode, e.g. (`sudo node`)
 
+### Debugging
+
+Logging of extraneous output has been moved to the
+[debug](https://github.com/visionmedia/debug) module. To have
+`node-siri` output non-critical messages, run your app with the `DEBUG`
+environment variable set like so:
+
+```
+$ DEBUG=siri:* node app.js
+```
+
+`node-siri` exposes three log-levels:
+
+```
+siri:debug
+siri:warn
+siri:error
+```
+
+If you only want to get errors and warnings reported, start your node
+server like so:
+
+```
+$ sudo DEBUG=siri:warn,siri:error node app.js
+```
+
+
 ### Reporting Issues
 
 Submit an issue on github with a [pastebin](http://pastebin.com) (or
@@ -145,5 +172,4 @@ directory, where `siri.js` is located._
     openssl x509 -in keys/server-cert.pem -noout -text
     nslookup guzzoni.apple.com
     node -v
-    grep "version" package.json
-    sudo node examples/proxy.js --debug 1
+    sudo DEBUG=siri:* node examples/proxy.js --dumpdata true
