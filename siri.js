@@ -16,6 +16,8 @@ var tls = require('tls'),
     i18n = require("i18n"),
     nconf = require("nconf"),
 
+    package_json = require('./package.json'),
+
     parser = require("./parser"),
     bplist = require("./bplist"),
     SiriParser = parser.SiriParser;
@@ -158,6 +160,7 @@ Server.prototype.getDevice = function(key) {
 };
 
 Server.prototype.start = function(callback) {
+    debug(__("Siri Proxy version") + ' ' + package_json.version);
     debug(__("Siri Proxy starting on port") + ' ' + SIRI_PORT);
     if (DNS_PROXY) {
         this.dnsProxy && this.dnsProxy.start();
