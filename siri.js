@@ -1,3 +1,4 @@
+/*jslint node: true, nomen: true, plusplus: true, white: true */
 'use strict';
 
 var tls = require('tls'),
@@ -8,9 +9,15 @@ var tls = require('tls'),
     net = require('net'),
     os = require('os'),
 
+    debug = require('debug')('siri:debug'),
+    warn = require('debug')('siri:warn'),
+    error = require('debug')('siri:error'),
+
     dnsproxy = require('dnsproxy'),
     i18n = require("i18n"),
     nconf = require("nconf"),
+
+    package_json = require('./package.json'),
 
     parser = require("./parser"),
     bplist = require("./bplist"),
@@ -20,9 +27,11 @@ var tls = require('tls'),
 //   1. Command-line arguments
 //   2. Environment variables
 //   3. The file 'config.json'
-nconf.argv().env().file({
-    file: './config.json'
-});
+nconf.argv()
+     .env()
+     .file({
+        file: './config.json'
+     });
 
 i18n.configure({
     locales: ['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ru'],
@@ -35,9 +44,8 @@ i18n.setLocale(nconf.get('locale'));
 
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
     SIRI_PORT = nconf.get('port') || 443,
-    SIRI_DEBUG = nconf.get('debug') || false,
-    DUMP_DATA = nconf.get('dumpdata') || false,
-    DNS_PROXY = nconf.get('dnsproxy') || true;
+    DUMP_DATA = (nconf.get('dumpdata') === null) ? false : nconf.get('dumpdata'),
+    DNS_PROXY = (nconf.get('dnsproxy') === null) ? true : nconf.get('dnsproxy');
 
 function __(str) {
     return i18n.__(str);
@@ -47,10 +55,6 @@ function toArray(list) {
     return [].slice.call(list, 0);
 }
 
-function debug() {
-    if (SIRI_DEBUG) return console.log.apply(console, toArray(arguments));
-}
-
 function fixNum(num, len) {
     num |= 0;
     len -= String(num).length;
@@ -58,10 +62,9 @@ function fixNum(num, len) {
 }
 
 function dumpPackage(type, pkg) {
-    if (!DUMP_DATA) return;
-
     var id = dumpPackage.__id__ || 1;
     fs.writeFileSync("data/" + fixNum(id, 4) + "." + type + ".json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
+    debug(fixNum(id,4) + "." + type + ".json");
     dumpPackage.__id__ = ++id;
 }
 
@@ -84,30 +87,33 @@ function errorHandler(error) {
                 __('The connection has been forcefully terminated.'));
             break;
         default:
-            if (error == "Error: DEPTH_ZERO_SELF_SIGNED_CERT") {
+            if (error === "Error: DEPTH_ZERO_SELF_SIGNED_CERT") {
                 console.error("[" + __('ERROR') + "] " + "DEPTH_ZERO_SELF_SIGNED_CERT" +
                     " :: " + __('Cannot verify self-signed certificate.'));
                 console.warn(__('Verify your DNS settings on this server.'));
                 process.exit(1);
             }
-            console.log("*" + error + "*");
+            console.error("Undefined error: " + error);
     }
 }
 
 function Server(options, commandListener) { // Server {{{
-    if (!(this instanceof Server)) return new Server(options, commandListener);
+    if (!(this instanceof Server)) {
+        return new Server(options, commandListener);
+    }
     tls.Server.call(this, options);
 
     this.deviceMap = {};
-    this.dnsProxy = this.initDNSProxy(DNS_PROXY);
-
+    if (DNS_PROXY) {
+        this.dnsProxy = this.initDNSProxy(DNS_PROXY);
+    }
     if (commandListener) {
         this.on("command", commandListener);
     }
 
     this.on("secureConnection", secureConnectionListener);
     this.on("clientError", function(err) {
-        debug(err);
+        warn(err);
     });
     this.on("error", errorHandler);
 }
@@ -117,7 +123,9 @@ util.inherits(Server, tls.Server);
 Server.prototype.initDNSProxy = function(address) {
     var interfaces, found, name, ips, length, index, ip,
         addresses;
-    if (!address) return null;
+    if (!address) {
+        return null;
+    }
 
     found = true;
     if (!net.isIPv4(address)) {
@@ -130,7 +138,7 @@ Server.prototype.initDNSProxy = function(address) {
                 for (index = 0; index < length; index++) {
                     ip = ips[index];
                     address = ip.address;
-                    if (!ip.internal && ip.family == "IPv4" && net.isIPv4(address)) {
+                    if (!ip.internal && ip.family === "IPv4" && net.isIPv4(address)) {
                         found = true;
                         break;
                     }
@@ -153,16 +161,21 @@ Server.prototype.initDNSProxy = function(address) {
 
 
 Server.prototype.getDevice = function(key) {
-    return this.deviceMap[key] = (this.deviceMap[key] || new SiriDevice());
+    this.deviceMap[key] = (this.deviceMap[key] || new SiriDevice());
+    return this.deviceMap[key];
 };
 
 Server.prototype.start = function(callback) {
+    debug(__("Siri Proxy version") + ' ' + package_json.version);
     debug(__("Siri Proxy starting on port") + ' ' + SIRI_PORT);
-    this.dnsProxy && this.dnsProxy.start();
+    if (DNS_PROXY) {
+        this.dnsProxy && this.dnsProxy.start();
+    }
     return this.listen(SIRI_PORT, callback);
 };
 
 Server.prototype.stop = function(callback) {
+    debug(__("Siri Proxy stopping") + '...');
     var self = this,
         serviceCount = 1,
         dnsProxy = self.dnsProxy;
@@ -200,7 +213,7 @@ exports.createServer = function(options, listener) {
         cert: fs.readFileSync(__dirname + '/keys/server-cert.pem')
     };
 
-    return Server(options, listener);
+    return new Server(options, listener);
 };
 
 function secureConnectionListener(clientStream) {
@@ -271,13 +284,16 @@ function secureConnectionListener(clientStream) {
                 break;
             case parser.PKG_ACE_PLIST:
                 debug("<-- " + bplist.toObject(pkg.rootNode())["class"]);
-                dumpPackage("client", pkg);
+                if (DUMP_DATA) {
+                    dumpPackage("client", pkg);
+                }
                 break;
             case parser.PKG_HTTP_UNKNOW:
             case parser.PKG_ACE_UNKNOW:
                 break;
             default:
-                self.emit("error", "Unknow package type:" + pkg.type + "!");
+                warn(__("Unknown package type") + ":" + pkg.type);
+                self.emit("error", "Unknown package type:" + pkg.type + "!");
                 break;
         }
     };
@@ -319,7 +335,9 @@ function secureConnectionListener(clientStream) {
                 break;
             case parser.PKG_ACE_PLIST:
                 debug("--> " + bplist.toObject(pkg.rootNode())["class"]);
-                dumpPackage("server", pkg);
+                if (DUMP_DATA) {
+                    dumpPackage("server", pkg);
+                }
                 device && device.receivePackage(pkg);
                 break;
             default:
@@ -429,10 +447,11 @@ SiriDevice.prototype.receivePackage = function(pkg) {
 };
 
 function getRecognizedText(obj) {
-    var arr;
-    if (obj["class"] != "SpeechRecognized") return null;
-    arr = [];
-    var removeSpace = true;
+    if (obj["class"] !== "SpeechRecognized") {
+        return null;
+    }
+    var arr = [],
+        removeSpace = true;
     obj.properties.recognition.properties.phrases.forEach(function(item) {
         item.properties.interpretations[0].properties.tokens.forEach(function(item) {
             var properties = item.properties;
@@ -441,10 +460,12 @@ function getRecognizedText(obj) {
             removeSpace = properties.removeSpaceAfter;
         });
     });
+    error('--> "' + arr.join("") + '"');
     return arr.join("");
 }
 
 SiriDevice.prototype.getUtteranceView = function(str, speakable, listen) {
+    error('<-- "' + str + '"');
     return {
         "class": "string:AssistantUtteranceView",
         "properties": {
@@ -516,7 +537,7 @@ SiriDevice.prototype.say = function(str, speakable) {
 };
 
 SiriDevice.prototype.ask = function(str, speakable, callback) {
-    if (typeof(speakable) != "string") {
+    if (typeof(speakable) !== "string") {
         callback = speakable;
         speakable = undefined;
     }
@@ -526,7 +547,9 @@ SiriDevice.prototype.ask = function(str, speakable, callback) {
 };
 
 SiriDevice.prototype.end = function(str, speakable) {
-    if (str !== undefined) this.say(str, speakable);
+    if (str !== undefined) {
+        this.say(str, speakable);
+    }
     this.saying = false;
     this.serverResponse = null;
     this.flushViews();
