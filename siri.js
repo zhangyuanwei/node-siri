@@ -161,7 +161,8 @@ Server.prototype.initDNSProxy = function(address) {
 
 
 Server.prototype.getDevice = function(key) {
-    return this.deviceMap[key] = (this.deviceMap[key] || new SiriDevice());
+    this.deviceMap[key] = (this.deviceMap[key] || new SiriDevice());
+    return this.deviceMap[key];
 };
 
 Server.prototype.start = function(callback) {
@@ -212,7 +213,7 @@ exports.createServer = function(options, listener) {
         cert: fs.readFileSync(__dirname + '/keys/server-cert.pem')
     };
 
-    return Server(options, listener);
+    return new Server(options, listener);
 };
 
 function secureConnectionListener(clientStream) {
@@ -446,10 +447,11 @@ SiriDevice.prototype.receivePackage = function(pkg) {
 };
 
 function getRecognizedText(obj) {
-    var arr;
-    if (obj["class"] != "SpeechRecognized") return null;
-    arr = [];
-    var removeSpace = true;
+    if (obj["class"] !== "SpeechRecognized") {
+        return null;
+    }
+    var arr = [],
+        removeSpace = true;
     obj.properties.recognition.properties.phrases.forEach(function(item) {
         item.properties.interpretations[0].properties.tokens.forEach(function(item) {
             var properties = item.properties;
@@ -535,7 +537,7 @@ SiriDevice.prototype.say = function(str, speakable) {
 };
 
 SiriDevice.prototype.ask = function(str, speakable, callback) {
-    if (typeof(speakable) != "string") {
+    if (typeof(speakable) !== "string") {
         callback = speakable;
         speakable = undefined;
     }
@@ -545,7 +547,9 @@ SiriDevice.prototype.ask = function(str, speakable, callback) {
 };
 
 SiriDevice.prototype.end = function(str, speakable) {
-    if (str !== undefined) this.say(str, speakable);
+    if (str !== undefined) {
+        this.say(str, speakable);
+    }
     this.saying = false;
     this.serverResponse = null;
     this.flushViews();
