@@ -14,7 +14,6 @@ var tls = require('tls'),
     error = require('debug')('siri:error'),
 
     dnsproxy = require('dnsproxy'),
-    i18n = require("i18n"),
     nconf = require("nconf"),
 
     package_json = require('./package.json'),
@@ -28,28 +27,15 @@ var tls = require('tls'),
 //   2. Environment variables
 //   3. The file 'config.json'
 nconf.argv()
-     .env()
-     .file({
+    .env()
+    .file({
         file: './config.json'
-     });
-
-i18n.configure({
-    locales: ['en', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'ru'],
-    defaultLocale: 'en',
-    updateFiles: false,
-    extension: '.js',
-    directory: __dirname + '/locales'
-});
-i18n.setLocale(nconf.get('locale'));
+    });
 
 var SIRI_SERVER = nconf.get('server') || 'guzzoni.apple.com',
     SIRI_PORT = nconf.get('port') || 443,
     DUMP_DATA = (nconf.get('dumpdata') === null) ? false : nconf.get('dumpdata'),
     DNS_PROXY = (nconf.get('dnsproxy') === null) ? true : nconf.get('dnsproxy');
-
-function __(str) {
-    return i18n.__(str);
-}
 
 function toArray(list) {
     return [].slice.call(list, 0);
@@ -64,33 +50,28 @@ function fixNum(num, len) {
 function dumpPackage(type, pkg) {
     var id = dumpPackage.__id__ || 1;
     fs.writeFileSync("data/" + fixNum(id, 4) + "." + type + ".json", JSON.stringify(bplist.toPObject(pkg.rootNode())));
-    debug(fixNum(id,4) + "." + type + ".json");
+    debug(fixNum(id, 4) + "." + type + ".json");
     dumpPackage.__id__ = ++id;
 }
 
 function errorHandler(error) {
     switch (error.code) {
         case "EACCES":
-            console.error("[" + __("ERROR") + "] " + error.code + " :: " +
-                __('Siri Proxy cannot start on port') + " " + SIRI_PORT);
+            console.error('[ERROR] ' + error.code + ' :: Siri Proxy cannot start on port ' + SIRI_PORT);
             if (SIRI_PORT < 1024) {
-                console.warn(__('Privledged access is required') + ' ' +
-                    __('to access reserved ports.'));
+                console.warn('Privledged access is required to access reserved ports.');
             }
             break;
         case "EADDRINUSE":
-            console.error("[" + __('ERROR') + "] " + error.code + " :: " +
-                __('The port and address combination is already in use.'));
+            console.error('[ERROR] ' + error.code + ' :: The port and address combination is already in use.');
             break;
         case "ECONNRESET":
-            console.error("[" + __('ERROR') + "] " + error.code + " :: " +
-                __('The connection has been forcefully terminated.'));
+            console.error('[ERROR] ' + error.code + ' :: The connection has been forcefully terminated.');
             break;
         default:
             if (error === "Error: DEPTH_ZERO_SELF_SIGNED_CERT") {
-                console.error("[" + __('ERROR') + "] " + "DEPTH_ZERO_SELF_SIGNED_CERT" +
-                    " :: " + __('Cannot verify self-signed certificate.'));
-                console.warn(__('Verify your DNS settings on this server.'));
+                console.error('[ERROR] DEPTH_ZERO_SELF_SIGNED_CERT :: Cannot verify self-signed certificate.');
+                console.warn('Verify your DNS settings on this server.');
                 process.exit(1);
             }
             console.error("Undefined error: " + error);
@@ -150,7 +131,7 @@ Server.prototype.initDNSProxy = function(address) {
     if (found) {
         addresses = {};
         addresses[SIRI_SERVER] = address;
-        debug(__("DNS Proxy") + ": " + SIRI_SERVER + " --> " + address);
+        debug('DNS Proxy: ' + SIRI_SERVER + ' --> ' + address);
         return dnsproxy.createServer({
             addresses: addresses
         });
@@ -166,8 +147,8 @@ Server.prototype.getDevice = function(key) {
 };
 
 Server.prototype.start = function(callback) {
-    debug(__("Siri Proxy version") + ' ' + package_json.version);
-    debug(__("Siri Proxy starting on port") + ' ' + SIRI_PORT);
+    debug('Siri Proxy version ' + package_json.version);
+    debug('Siri Proxy starting on port ' + SIRI_PORT);
     if (DNS_PROXY) {
         this.dnsProxy && this.dnsProxy.start();
     }
@@ -175,7 +156,7 @@ Server.prototype.start = function(callback) {
 };
 
 Server.prototype.stop = function(callback) {
-    debug(__("Siri Proxy stopping") + '...');
+    debug('Siri Proxy stopping...');
     var self = this,
         serviceCount = 1,
         dnsProxy = self.dnsProxy;
@@ -239,10 +220,10 @@ function secureConnectionListener(clientStream) {
     clientCompressor = null;
 
     function onServerConnect() {
-        debug(__('Server connected.'));
+        debug('Server connected.');
         serverState = STAT_CONNECT;
     }
-    debug(__('Client connected.'));
+    debug('Client connected.');
 
     clientStream.pipe(serverStream); // pipe client stream to server stream
 
@@ -292,7 +273,7 @@ function secureConnectionListener(clientStream) {
             case parser.PKG_ACE_UNKNOW:
                 break;
             default:
-                warn(__("Unknown package type") + ":" + pkg.type);
+                warn('Unknown package type:' + pkg.type);
                 self.emit("error", "Unknown package type:" + pkg.type + "!");
                 break;
         }
@@ -303,7 +284,7 @@ function secureConnectionListener(clientStream) {
     }
 
     function onClientClose() {
-        debug(__('Client disconnected.'));
+        debug('Client disconnected.');
         clientState = STAT_CLOSED;
         clientStream.removeListener("close", onClientClose);
         clientStream.removeListener("data", onClientData);
@@ -347,7 +328,7 @@ function secureConnectionListener(clientStream) {
     };
 
     function onServerClose() {
-        debug(__('Server disconnected.'));
+        debug('Server disconnected.');
         serverState = STAT_CLOSED;
         serverStream.removeListener("close", onServerClose);
         serverStream.removeListener("data", onServerData);
@@ -364,7 +345,7 @@ function secureConnectionListener(clientStream) {
 
     function onClose() {
         if (clientState === STAT_CLOSED && serverState === STAT_CLOSED) {
-            debug(__('Recycling resources.'));
+            debug('Recycling resources.');
             clientParser = null;
             serverCompressor = null;
             serverStream = null;
